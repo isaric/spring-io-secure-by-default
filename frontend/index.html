@@ -1,0 +1,1866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔐 Secure by Default — Spring IO Demo</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --spring-green: #6DB33F;
+            --spring-green-dark: #4e8a2b;
+            --spring-green-light: #8ed454;
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-card: #1c2333;
+            --bg-card-hover: #21283a;
+            --border: #30363d;
+            --border-accent: #6DB33F44;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --text-muted: #484f58;
+            --red: #f85149;
+            --red-bg: #3d1515;
+            --yellow: #e3b341;
+            --yellow-bg: #2d2307;
+            --blue: #58a6ff;
+            --blue-bg: #0d2044;
+            --green-bg: #0f2d0f;
+            --purple: #bc8cff;
+            --orange: #ffa657;
+            --radius: 8px;
+            --radius-lg: 12px;
+            --shadow: 0 4px 24px rgba(0,0,0,0.4);
+            --transition: 0.2s ease;
+        }
+
+        html, body {
+            height: 100%;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        /* ── Scrollbar ── */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-primary); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+        /* ── Banner ── */
+        #top-banner {
+            background: linear-gradient(135deg, #0f2d0f 0%, #0d2044 50%, #1a0d2e 100%);
+            border-bottom: 1px solid var(--spring-green);
+            padding: 8px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            color: var(--spring-green-light);
+            text-transform: uppercase;
+        }
+        #top-banner .banner-badge {
+            background: var(--spring-green);
+            color: #000;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        /* ── Header ── */
+        #header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            height: 64px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 16px rgba(0,0,0,0.5);
+        }
+        .header-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--spring-green);
+            text-decoration: none;
+            white-space: nowrap;
+        }
+        .header-logo .logo-icon {
+            font-size: 28px;
+            line-height: 1;
+        }
+        .header-logo .logo-sub {
+            font-size: 11px;
+            color: var(--text-secondary);
+            font-weight: 400;
+            display: block;
+            line-height: 1;
+        }
+        .header-spacer { flex: 1; }
+        #auth-status-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            transition: var(--transition);
+        }
+        #auth-status-badge.authenticated {
+            background: var(--green-bg);
+            border: 1px solid var(--spring-green);
+            color: var(--spring-green-light);
+        }
+        #auth-status-badge.unauthenticated {
+            background: var(--red-bg);
+            border: 1px solid var(--red);
+            color: var(--red);
+        }
+        .status-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .status-dot.green { background: var(--spring-green); box-shadow: 0 0 6px var(--spring-green); }
+        .status-dot.red { background: var(--red); box-shadow: 0 0 6px var(--red); }
+        .status-dot.yellow { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); animation: pulse 1.5s infinite; }
+
+        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+
+        /* ── Layout ── */
+        #main-layout {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            gap: 0;
+            min-height: calc(100vh - 100px);
+        }
+        #content-area {
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow: hidden;
+        }
+        #sidebar {
+            background: var(--bg-secondary);
+            border-left: 1px solid var(--border);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            position: sticky;
+            top: 64px;
+            height: calc(100vh - 100px);
+            overflow-y: auto;
+        }
+
+        /* ── Cards ── */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            transition: var(--transition);
+        }
+        .card:hover { border-color: var(--border-accent); }
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(109,179,63,0.04);
+        }
+        .card-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            flex: 1;
+        }
+        .card-icon { font-size: 18px; }
+        .card-body { padding: 18px; }
+
+        /* ── Buttons ── */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 8px 16px;
+            border-radius: var(--radius);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: var(--transition);
+            text-decoration: none;
+            white-space: nowrap;
+        }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-primary {
+            background: var(--spring-green);
+            color: #000;
+        }
+        .btn-primary:hover:not(:disabled) {
+            background: var(--spring-green-light);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(109,179,63,0.3);
+        }
+        .btn-danger {
+            background: var(--red-bg);
+            color: var(--red);
+            border: 1px solid var(--red);
+        }
+        .btn-danger:hover:not(:disabled) {
+            background: var(--red);
+            color: #fff;
+        }
+        .btn-ghost {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+        }
+        .btn-ghost:hover:not(:disabled) {
+            background: var(--bg-card-hover);
+            color: var(--text-primary);
+            border-color: var(--spring-green);
+        }
+        .btn-sm { padding: 5px 12px; font-size: 12px; }
+        .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+
+        /* ── Auth Panel ── */
+        #auth-panel .user-info {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 16px;
+            padding: 14px;
+            background: var(--bg-secondary);
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+        }
+        .avatar {
+            width: 48px; height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--spring-green), var(--blue));
+            display: flex; align-items: center; justify-content: center;
+            font-size: 20px;
+            font-weight: 700;
+            color: #000;
+            flex-shrink: 0;
+        }
+        .user-details { flex: 1; }
+        .user-name { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+        .user-email { font-size: 12px; color: var(--text-secondary); }
+        .user-roles { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+        .role-badge {
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+        .role-ADMIN { background: rgba(188,140,255,0.15); border: 1px solid var(--purple); color: var(--purple); }
+        .role-USER { background: rgba(88,166,255,0.15); border: 1px solid var(--blue); color: var(--blue); }
+        .role-default { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-secondary); }
+        .expiry-bar {
+            margin-top: 12px;
+        }
+        .expiry-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+        }
+        .progress-track {
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: var(--spring-green);
+            border-radius: 2px;
+            transition: width 1s linear, background 1s;
+        }
+        .progress-fill.warn { background: var(--yellow); }
+        .progress-fill.danger { background: var(--red); }
+
+        /* ── Token Inspector ── */
+        .token-section { margin-bottom: 14px; }
+        .token-section-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .token-section-title::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+        .json-viewer {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 12px 14px;
+            font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+            font-size: 12px;
+            line-height: 1.7;
+            overflow-x: auto;
+            max-height: 220px;
+            overflow-y: auto;
+            white-space: pre;
+        }
+        .json-key { color: var(--blue); }
+        .json-string { color: var(--spring-green-light); }
+        .json-number { color: var(--orange); }
+        .json-bool { color: var(--purple); }
+        .json-null { color: var(--text-muted); }
+        .raw-token {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 10px 12px;
+            font-family: monospace;
+            font-size: 11px;
+            word-break: break-all;
+            color: var(--text-muted);
+            max-height: 60px;
+            overflow-y: auto;
+            line-height: 1.4;
+        }
+        .raw-token .jwt-part-1 { color: var(--red); }
+        .raw-token .jwt-part-2 { color: var(--spring-green); }
+        .raw-token .jwt-part-3 { color: var(--blue); }
+
+        /* ── Documents ── */
+        .doc-table { width: 100%; border-collapse: collapse; }
+        .doc-table th {
+            text-align: left;
+            padding: 8px 12px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border);
+        }
+        .doc-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid rgba(48,54,61,0.5);
+            font-size: 13px;
+            vertical-align: middle;
+        }
+        .doc-table tr:hover td { background: var(--bg-card-hover); }
+        .doc-table tr:last-child td { border-bottom: none; }
+        .classification-badge {
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            display: inline-block;
+        }
+        .cls-public { background: rgba(109,179,63,0.15); border: 1px solid var(--spring-green); color: var(--spring-green-light); }
+        .cls-internal { background: rgba(227,179,65,0.15); border: 1px solid var(--yellow); color: var(--yellow); }
+        .cls-confidential { background: rgba(248,81,73,0.15); border: 1px solid var(--red); color: var(--red); }
+        .cls-restricted { background: rgba(248,81,73,0.2); border: 1px solid #ff3020; color: #ff6b5b; }
+        .cls-default { background: var(--bg-secondary); border: 1px solid var(--border); color: var(--text-secondary); }
+
+        /* ── Audit Log ── */
+        #audit-log-feed {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 12px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .log-entry {
+            display: flex;
+            gap: 10px;
+            padding: 4px 0;
+            border-bottom: 1px solid rgba(48,54,61,0.3);
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+        .log-entry:last-child { border-bottom: none; }
+        .log-time { color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
+        .log-level { font-weight: 700; flex-shrink: 0; min-width: 50px; }
+        .log-level.INFO { color: var(--blue); }
+        .log-level.WARN { color: var(--yellow); }
+        .log-level.ERROR { color: var(--red); }
+        .log-level.AUDIT { color: var(--spring-green); }
+        .log-msg { color: var(--text-secondary); }
+        .log-user { color: var(--spring-green-light); }
+
+        /* ── OPA Policy ── */
+        .policy-block {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 14px;
+            font-family: monospace;
+            font-size: 12px;
+            line-height: 1.8;
+            overflow-x: auto;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .rego-keyword { color: var(--purple); font-weight: 600; }
+        .rego-string { color: var(--spring-green-light); }
+        .rego-comment { color: var(--text-muted); font-style: italic; }
+        .rego-builtin { color: var(--orange); }
+        .rego-rule { color: var(--blue); }
+
+        /* ── Status Bar ── */
+        #status-bar {
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border);
+            padding: 8px 24px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            font-size: 12px;
+        }
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-secondary);
+        }
+        .status-label { font-weight: 600; color: var(--text-primary); }
+        .status-spacer { flex: 1; }
+        .status-version { color: var(--text-muted); }
+
+        /* ── Sidebar ── */
+        .sidebar-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+        }
+        .sidebar-card-header {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border);
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--spring-green);
+            background: rgba(109,179,63,0.06);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .demo-flow {
+            padding: 12px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .demo-step {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            cursor: pointer;
+            padding: 6px 8px;
+            border-radius: var(--radius);
+            transition: var(--transition);
+        }
+        .demo-step:hover { background: var(--bg-card-hover); }
+        .demo-step.active {
+            background: rgba(109,179,63,0.1);
+            border: 1px solid var(--border-accent);
+        }
+        .demo-step.completed .step-num {
+            background: var(--spring-green);
+            color: #000;
+        }
+        .step-num {
+            width: 22px; height: 22px;
+            border-radius: 50%;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+            flex-shrink: 0;
+            color: var(--text-secondary);
+        }
+        .step-text { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+        .step-text strong { color: var(--text-primary); display: block; }
+
+        /* ── Architecture Diagram ── */
+        .arch-diagram {
+            padding: 12px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .arch-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+        }
+        .arch-box {
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--bg-secondary);
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-primary);
+            white-space: nowrap;
+        }
+        .arch-box.browser { border-color: var(--blue); color: var(--blue); }
+        .arch-box.auth { border-color: var(--spring-green); color: var(--spring-green); }
+        .arch-box.resource { border-color: var(--orange); color: var(--orange); }
+        .arch-box.opa { border-color: var(--purple); color: var(--purple); }
+        .arch-arrow { color: var(--text-muted); font-size: 14px; }
+
+        /* ── Loading / Error states ── */
+        .loading-spinner {
+            display: inline-block;
+            width: 14px; height: 14px;
+            border: 2px solid var(--border);
+            border-top-color: var(--spring-green);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            vertical-align: middle;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .empty-state {
+            text-align: center;
+            padding: 32px 16px;
+            color: var(--text-muted);
+        }
+        .empty-state .empty-icon { font-size: 32px; margin-bottom: 8px; }
+        .empty-state .empty-text { font-size: 13px; }
+        .alert {
+            padding: 12px 14px;
+            border-radius: var(--radius);
+            font-size: 13px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        .alert-error { background: var(--red-bg); border: 1px solid var(--red); color: #ff8c8c; }
+        .alert-success { background: var(--green-bg); border: 1px solid var(--spring-green); color: var(--spring-green-light); }
+        .alert-info { background: var(--blue-bg); border: 1px solid var(--blue); color: #90c8ff; }
+        .alert-warn { background: var(--yellow-bg); border: 1px solid var(--yellow); color: #f0c040; }
+
+        /* ── Hidden / transitions ── */
+        .hidden { display: none !important; }
+        .panel-fade {
+            opacity: 0;
+            transform: translateY(8px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        .panel-fade.visible {
+            opacity: 1;
+            transform: none;
+        }
+
+        /* ── Toggle switch ── */
+        .toggle-wrap { display: flex; align-items: center; gap: 10px; }
+        .toggle-label { font-size: 13px; color: var(--text-secondary); }
+        .toggle {
+            position: relative;
+            width: 40px; height: 22px;
+            cursor: pointer;
+        }
+        .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+        .toggle-slider {
+            position: absolute;
+            inset: 0;
+            background: var(--border);
+            border-radius: 11px;
+            transition: var(--transition);
+        }
+        .toggle-slider::before {
+            content: '';
+            position: absolute;
+            width: 16px; height: 16px;
+            left: 3px; top: 3px;
+            background: #fff;
+            border-radius: 50%;
+            transition: var(--transition);
+        }
+        .toggle input:checked + .toggle-slider { background: var(--spring-green); }
+        .toggle input:checked + .toggle-slider::before { transform: translateX(18px); }
+
+        /* ── Copy button ── */
+        .copy-btn {
+            padding: 3px 10px;
+            font-size: 11px;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            transition: var(--transition);
+        }
+        .copy-btn:hover { border-color: var(--spring-green); color: var(--spring-green); }
+        .copy-btn.copied { border-color: var(--spring-green); color: var(--spring-green); background: var(--green-bg); }
+
+        /* ── Responsive ── */
+        @media (max-width: 900px) {
+            #main-layout { grid-template-columns: 1fr; }
+            #sidebar {
+                position: static;
+                height: auto;
+                border-left: none;
+                border-top: 1px solid var(--border);
+            }
+        }
+
+        /* ── Admin panel ── */
+        #admin-panel .admin-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .opa-response {
+            margin-top: 12px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 12px;
+            font-family: monospace;
+            font-size: 12px;
+            color: var(--text-secondary);
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        /* ── Connection probe ── */
+        .conn-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+        }
+        .conn-pill.ok { border-color: var(--spring-green); color: var(--spring-green-light); }
+        .conn-pill.err { border-color: var(--red); color: var(--red); }
+        .conn-pill.checking { border-color: var(--yellow); color: var(--yellow); }
+
+        /* ── Section divider ── */
+        .section-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 700px) {
+            .section-row { grid-template-columns: 1fr; }
+        }
+
+        /* ── Tooltip ── */
+        [data-tip] { position: relative; }
+        [data-tip]:hover::after {
+            content: attr(data-tip);
+            position: absolute;
+            bottom: calc(100% + 6px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: #000;
+            color: #fff;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            white-space: nowrap;
+            z-index: 999;
+            pointer-events: none;
+            border: 1px solid var(--border);
+        }
+    </style>
+</head>
+<body>
+
+<!-- ── Top Banner ── -->
+<div id="top-banner">
+    <span class="banner-badge">LIVE DEMO</span>
+    Spring IO 2025 — Zero Trust, OAuth2 &amp; Runtime Policies
+    <span class="banner-badge">PKCE</span>
+</div>
+
+<!-- ── Header ── -->
+<header id="header">
+    <div class="header-logo">
+        <span class="logo-icon">🔐</span>
+        <div>
+            <span>Secure by Default</span>
+            <span class="logo-sub">Spring IO 2025 Demo</span>
+        </div>
+    </div>
+    <div class="header-spacer"></div>
+    <div id="conn-indicators" style="display:flex;gap:8px;align-items:center;">
+        <span class="conn-pill checking" id="conn-auth" data-tip="Auth Server :9000">⬤ Auth</span>
+        <span class="conn-pill checking" id="conn-res" data-tip="Resource Server :8080">⬤ API</span>
+        <span class="conn-pill checking" id="conn-opa" data-tip="OPA :8181">⬤ OPA</span>
+    </div>
+    <div id="auth-status-badge" class="unauthenticated">
+        <span class="status-dot red" id="auth-dot"></span>
+        <span id="auth-status-text">Not Authenticated</span>
+    </div>
+</header>
+
+<!-- ── Main Layout ── -->
+<div id="main-layout">
+    <div id="content-area">
+
+        <!-- ── Auth Panel ── -->
+        <div class="card panel-fade visible" id="auth-panel">
+            <div class="card-header">
+                <span class="card-icon">👤</span>
+                <span class="card-title">Authentication</span>
+                <div id="auth-actions" class="btn-group"></div>
+            </div>
+            <div class="card-body">
+                <div id="unauthenticated-view">
+                    <div class="alert alert-info" style="margin-bottom:14px;">
+                        <span>ℹ️</span>
+                        <div>
+                            <strong>OAuth2 PKCE Flow</strong><br>
+                            Click <strong>Login</strong> to initiate the Authorization Code + PKCE flow with the Spring Authorization Server.
+                            No client secret is used — this is a public client.
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:12px;align-items:center;">
+                        <button class="btn btn-primary" id="login-btn" onclick="startLogin()">
+                            🚀 Login with OAuth2
+                        </button>
+                        <span style="color:var(--text-muted);font-size:12px;">
+                            Uses PKCE S256 · client_id: <code style="color:var(--spring-green)">frontend-client</code>
+                        </span>
+                    </div>
+                </div>
+                <div id="authenticated-view" class="hidden">
+                    <div class="user-info">
+                        <div class="avatar" id="user-avatar">?</div>
+                        <div class="user-details">
+                            <div class="user-name" id="user-name">—</div>
+                            <div class="user-email" id="user-email">—</div>
+                            <div class="user-roles" id="user-roles"></div>
+                        </div>
+                        <button class="btn btn-danger btn-sm" onclick="logout()">⏏ Logout</button>
+                    </div>
+                    <div class="expiry-bar">
+                        <div class="expiry-label">
+                            <span>Token Expiry</span>
+                            <span id="expiry-countdown">—</span>
+                        </div>
+                        <div class="progress-track">
+                            <div class="progress-fill" id="expiry-bar-fill" style="width:100%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Token Inspector ── -->
+        <div class="card panel-fade" id="token-panel">
+            <div class="card-header">
+                <span class="card-icon">🔍</span>
+                <span class="card-title">JWT Token Inspector</span>
+                <button class="copy-btn" id="copy-token-btn" onclick="copyToken()">Copy Token</button>
+            </div>
+            <div class="card-body">
+                <div class="token-section">
+                    <div class="token-section-title">Raw Token</div>
+                    <div class="raw-token" id="raw-token-display">—</div>
+                </div>
+                <div class="section-row">
+                    <div class="token-section">
+                        <div class="token-section-title">Header</div>
+                        <div class="json-viewer" id="jwt-header-view">—</div>
+                    </div>
+                    <div class="token-section">
+                        <div class="token-section-title">Payload</div>
+                        <div class="json-viewer" id="jwt-payload-view">—</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Documents Panel ── -->
+        <div class="card panel-fade" id="documents-panel">
+            <div class="card-header">
+                <span class="card-icon">📄</span>
+                <span class="card-title">Documents API</span>
+                <div style="display:flex;gap:8px;">
+                    <span style="font-size:12px;color:var(--text-muted);">GET /api/documents</span>
+                    <button class="btn btn-ghost btn-sm" onclick="fetchDocuments()" id="fetch-docs-btn">⟳ Fetch</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="documents-content">
+                    <div class="empty-state">
+                        <div class="empty-icon">📂</div>
+                        <div class="empty-text">Click <strong>Fetch</strong> to load documents from the resource server</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Admin + OPA Row ── -->
+        <div class="section-row">
+            <!-- Admin Panel -->
+            <div class="card panel-fade" id="admin-panel">
+                <div class="card-header">
+                    <span class="card-icon">🛡️</span>
+                    <span class="card-title">Admin Panel</span>
+                    <span id="admin-role-badge" style="font-size:11px;color:var(--text-muted);">ADMIN only</span>
+                </div>
+                <div class="card-body">
+                    <div id="admin-content">
+                        <div class="alert alert-warn" style="margin-bottom:12px;">
+                            <span>⚠️</span>
+                            <span>Login as <strong>alice</strong> (ADMIN role) to access admin functions.</span>
+                        </div>
+                        <div class="admin-actions">
+                            <button class="btn btn-ghost btn-sm" onclick="listUsers()" id="list-users-btn">👥 List Users</button>
+                            <button class="btn btn-ghost btn-sm" onclick="reloadOpaPolicy()" id="reload-opa-btn">🔄 Reload OPA Policy</button>
+                            <button class="btn btn-ghost btn-sm" onclick="fetchOpaDecision()" id="opa-decision-btn">⚖️ OPA Decision</button>
+                        </div>
+                        <div id="admin-response" class="opa-response hidden"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- OPA Policy Viewer -->
+            <div class="card panel-fade" id="opa-panel">
+                <div class="card-header">
+                    <span class="card-icon">⚖️</span>
+                    <span class="card-title">OPA Policy</span>
+                    <button class="btn btn-ghost btn-sm" onclick="fetchOpaPolicy()" id="fetch-policy-btn">↓ Load</button>
+                </div>
+                <div class="card-body">
+                    <div id="policy-content">
+                        <div class="policy-block" id="opa-policy-display"><span class="rego-comment"># Click Load to fetch live policy from OPA
+# or showing default embedded policy below</span>
+
+<span class="rego-comment"># Resource Server authorization policy</span>
+<span class="rego-keyword">package</span> authz
+
+<span class="rego-keyword">import</span> future.keywords.if
+<span class="rego-keyword">import</span> future.keywords.in
+
+<span class="rego-rule">default</span> allow := <span class="rego-builtin">false</span>
+
+<span class="rego-comment"># Admins can access everything</span>
+allow if {
+  <span class="rego-builtin">some</span> role <span class="rego-keyword">in</span> input.roles
+  role == <span class="rego-string">"ROLE_ADMIN"</span>
+}
+
+<span class="rego-comment"># Users can access non-restricted docs</span>
+allow if {
+  input.method == <span class="rego-string">"GET"</span>
+  <span class="rego-builtin">not</span> restricted_path
+  <span class="rego-builtin">some</span> role <span class="rego-keyword">in</span> input.roles
+  role == <span class="rego-string">"ROLE_USER"</span>
+}
+
+restricted_path if {
+  startswith(input.path, <span class="rego-string">"/api/admin"</span>)
+}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Audit Log ── -->
+        <div class="card panel-fade" id="audit-log-panel">
+            <div class="card-header">
+                <span class="card-icon">📋</span>
+                <span class="card-title">Audit Log</span>
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <label class="toggle" data-tip="Auto-refresh every 5s">
+                        <input type="checkbox" id="auto-refresh-toggle" onchange="toggleAutoRefresh()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-label">Auto</span>
+                    <button class="btn btn-ghost btn-sm" onclick="fetchAuditLog()" id="fetch-audit-btn">⟳ Fetch</button>
+                    <button class="btn btn-ghost btn-sm" onclick="clearAuditLog()" style="color:var(--text-muted);">✕ Clear</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="audit-log-feed">
+                    <div class="empty-state" id="audit-empty">
+                        <div class="empty-icon">📋</div>
+                        <div class="empty-text">Audit log entries will appear here.<br>Requires ADMIN role (<strong>alice</strong>).</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /content-area -->
+
+    <!-- ── Sidebar ── -->
+    <aside id="sidebar">
+
+        <!-- Demo Flow -->
+        <div class="sidebar-card">
+            <div class="sidebar-card-header">
+                📺 Demo Flow
+            </div>
+            <div class="demo-flow" id="demo-steps">
+                <div class="demo-step" id="step-1">
+                    <div class="step-num">1</div>
+                    <div class="step-text"><strong>Login → OAuth2 PKCE</strong>Click Login, observe the redirect to Spring Auth Server</div>
+                </div>
+                <div class="demo-step" id="step-2">
+                    <div class="step-num">2</div>
+                    <div class="step-text"><strong>Login as alice</strong>Username: alice / Password: password (ADMIN role)</div>
+                </div>
+                <div class="demo-step" id="step-3">
+                    <div class="step-num">3</div>
+                    <div class="step-text"><strong>View Documents</strong>All docs visible: public + internal + confidential</div>
+                </div>
+                <div class="demo-step" id="step-4">
+                    <div class="step-num">4</div>
+                    <div class="step-text"><strong>Inspect JWT</strong>Decode token, see roles &amp; claims live</div>
+                </div>
+                <div class="demo-step" id="step-5">
+                    <div class="step-num">5</div>
+                    <div class="step-text"><strong>Switch to bob</strong>Logout → Login as bob (USER role)</div>
+                </div>
+                <div class="demo-step" id="step-6">
+                    <div class="step-num">6</div>
+                    <div class="step-text"><strong>Filtered view</strong>Bob sees only PUBLIC docs</div>
+                </div>
+                <div class="demo-step" id="step-7">
+                    <div class="step-num">7</div>
+                    <div class="step-text"><strong>Admin → Denied</strong>403 Forbidden for bob on /api/admin</div>
+                </div>
+                <div class="demo-step" id="step-8">
+                    <div class="step-num">8</div>
+                    <div class="step-text"><strong>Audit Log</strong>Login as alice → View all events</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Architecture -->
+        <div class="sidebar-card">
+            <div class="sidebar-card-header">
+                🏗️ Architecture
+            </div>
+            <div class="arch-diagram">
+                <div class="arch-row">
+                    <div class="arch-box browser">🌐 Browser</div>
+                    <div class="arch-arrow">⟷</div>
+                    <div class="arch-box auth">🔐 Auth :9000</div>
+                </div>
+                <div class="arch-row" style="padding-left:20px;">
+                    <div class="arch-arrow" style="transform:rotate(90deg);padding:0 2px;">↕</div>
+                    <div style="font-size:11px;color:var(--text-muted);">Bearer Token</div>
+                </div>
+                <div class="arch-row">
+                    <div class="arch-box browser">🌐 Browser</div>
+                    <div class="arch-arrow">⟷</div>
+                    <div class="arch-box resource">⚡ API :8080</div>
+                </div>
+                <div class="arch-row" style="padding-left:100px;">
+                    <div class="arch-arrow" style="transform:rotate(90deg);">↕</div>
+                    <div style="font-size:11px;color:var(--text-muted);">Policy Check</div>
+                </div>
+                <div class="arch-row" style="padding-left:80px;">
+                    <div class="arch-box opa">⚖️ OPA :8181</div>
+                </div>
+                <div style="margin-top:8px;padding:8px;background:var(--bg-secondary);border-radius:var(--radius);font-size:11px;color:var(--text-muted);">
+                    <div>🔄 PKCE: no client_secret</div>
+                    <div>🔒 JWTs validated by resource server</div>
+                    <div>📜 Rego policies enforced at runtime</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Reference -->
+        <div class="sidebar-card">
+            <div class="sidebar-card-header">
+                📖 Quick Reference
+            </div>
+            <div style="padding:12px 14px;display:flex;flex-direction:column;gap:8px;">
+                <div style="font-size:11px;">
+                    <div style="color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;font-weight:700;letter-spacing:.05em;">Test Users</div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 8px;">
+                        <span style="color:var(--spring-green)">alice</span><span class="role-badge role-ADMIN" style="font-size:10px;">ADMIN</span>
+                        <span style="color:var(--blue)">bob</span><span class="role-badge role-USER" style="font-size:10px;">USER</span>
+                    </div>
+                    <div style="color:var(--text-muted);margin-top:4px;font-size:10px;">Password: <code style="color:var(--yellow)">password</code></div>
+                </div>
+                <div style="height:1px;background:var(--border);"></div>
+                <div style="font-size:11px;">
+                    <div style="color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;font-weight:700;letter-spacing:.05em;">API Endpoints</div>
+                    <div style="display:flex;flex-direction:column;gap:3px;">
+                        <code style="color:var(--spring-green-light);">GET /api/documents</code>
+                        <code style="color:var(--yellow);">GET /api/admin/users</code>
+                        <code style="color:var(--yellow);">GET /api/admin/audit</code>
+                        <code style="color:var(--blue);">GET /api/userinfo</code>
+                    </div>
+                </div>
+                <div style="height:1px;background:var(--border);"></div>
+                <div style="font-size:11px;">
+                    <div style="color:var(--text-muted);margin-bottom:4px;text-transform:uppercase;font-weight:700;letter-spacing:.05em;">PKCE Flow</div>
+                    <div style="color:var(--text-secondary);line-height:1.7;">
+                        1. Generate <code style="color:var(--orange)">code_verifier</code><br>
+                        2. SHA256 → <code style="color:var(--orange)">code_challenge</code><br>
+                        3. Redirect to /authorize<br>
+                        4. Exchange code + verifier<br>
+                        5. Receive JWT tokens
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </aside>
+</div><!-- /main-layout -->
+
+<!-- ── Status Bar ── -->
+<footer id="status-bar">
+    <div class="status-item">
+        <span class="status-dot yellow" id="sb-auth-dot"></span>
+        <span class="status-label">Auth Server</span>
+        <span id="sb-auth-url" style="color:var(--text-muted);font-size:11px;">http://localhost:9000</span>
+    </div>
+    <div class="status-item">
+        <span class="status-dot yellow" id="sb-res-dot"></span>
+        <span class="status-label">Resource Server</span>
+        <span id="sb-res-url" style="color:var(--text-muted);font-size:11px;">http://localhost:8080</span>
+    </div>
+    <div class="status-item">
+        <span class="status-dot yellow" id="sb-opa-dot"></span>
+        <span class="status-label">OPA</span>
+        <span id="sb-opa-url" style="color:var(--text-muted);font-size:11px;">http://localhost:8181</span>
+    </div>
+    <div class="status-spacer"></div>
+    <div class="status-item">
+        <span id="last-request-info" style="color:var(--text-muted);font-size:11px;">No requests yet</span>
+    </div>
+    <div class="status-version" style="color:var(--text-muted);font-size:11px;">Spring IO 2025 · Secure by Default</div>
+</footer>
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════════════════════════
+//  CONFIGURATION
+// ═══════════════════════════════════════════════════════════════════
+const AUTH_SERVER    = 'http://localhost:9000';
+const RESOURCE_SERVER = 'http://localhost:8080';
+const OPA_SERVER     = 'http://localhost:8181';
+const CLIENT_ID      = 'frontend-client';
+const REDIRECT_URI   = window.location.origin + '/callback';
+const SCOPES         = 'openid profile email resource:read';
+
+// ═══════════════════════════════════════════════════════════════════
+//  PKCE HELPERS
+// ═══════════════════════════════════════════════════════════════════
+
+function generateCodeVerifier() {
+    const array = new Uint8Array(64);
+    crypto.getRandomValues(array);
+    return base64urlEncode(array);
+}
+
+async function generateCodeChallenge(verifier) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(verifier);
+    const digest = await crypto.subtle.digest('SHA-256', data);
+    return base64urlEncode(new Uint8Array(digest));
+}
+
+function base64urlEncode(buffer) {
+    let str = '';
+    const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+    for (let i = 0; i < bytes.byteLength; i++) {
+        str += String.fromCharCode(bytes[i]);
+    }
+    return btoa(str)
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=/g, '');
+}
+
+function base64urlDecode(str) {
+    str = str.replace(/-/g, '+').replace(/_/g, '/');
+    while (str.length % 4) str += '=';
+    try {
+        return decodeURIComponent(
+            atob(str).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
+        );
+    } catch {
+        return atob(str);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  JWT HELPERS
+// ═══════════════════════════════════════════════════════════════════
+
+function decodeJwt(token) {
+    try {
+        const parts = token.split('.');
+        if (parts.length !== 3) return null;
+        return {
+            header:    JSON.parse(base64urlDecode(parts[0])),
+            payload:   JSON.parse(base64urlDecode(parts[1])),
+            signature: parts[2],
+            raw:       parts
+        };
+    } catch {
+        return null;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  TOKEN STORAGE (sessionStorage — demo only)
+// ═══════════════════════════════════════════════════════════════════
+
+const TOKEN_KEYS = ['access_token', 'id_token', 'refresh_token', 'expires_in', 'token_expiry_ts'];
+
+function saveTokens(data) {
+    const expiryTs = Date.now() + (data.expires_in || 3600) * 1000;
+    sessionStorage.setItem('access_token',   data.access_token  || '');
+    sessionStorage.setItem('id_token',       data.id_token      || '');
+    sessionStorage.setItem('refresh_token',  data.refresh_token || '');
+    sessionStorage.setItem('expires_in',     String(data.expires_in || 3600));
+    sessionStorage.setItem('token_expiry_ts', String(expiryTs));
+    sessionStorage.setItem('token_issued_ts', String(Date.now()));
+}
+
+function clearTokens() {
+    TOKEN_KEYS.forEach(k => sessionStorage.removeItem(k));
+    sessionStorage.removeItem('token_issued_ts');
+}
+
+function getAccessToken() {
+    return sessionStorage.getItem('access_token') || null;
+}
+
+function isAuthenticated() {
+    const token = getAccessToken();
+    if (!token) return false;
+    const expiry = parseInt(sessionStorage.getItem('token_expiry_ts') || '0', 10);
+    return expiry > Date.now();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  OAUTH2 PKCE FLOW
+// ═══════════════════════════════════════════════════════════════════
+
+async function startLogin() {
+    const verifier = generateCodeVerifier();
+    const challenge = await generateCodeChallenge(verifier);
+    const state = base64urlEncode(crypto.getRandomValues(new Uint8Array(16)));
+
+    sessionStorage.setItem('pkce_verifier', verifier);
+    sessionStorage.setItem('oauth_state',   state);
+
+    const params = new URLSearchParams({
+        response_type:         'code',
+        client_id:             CLIENT_ID,
+        redirect_uri:          REDIRECT_URI,
+        scope:                 SCOPES,
+        state:                 state,
+        code_challenge:        challenge,
+        code_challenge_method: 'S256',
+    });
+
+    updateLastRequest('Redirecting to Auth Server…');
+    window.location.href = `${AUTH_SERVER}/oauth2/authorize?${params}`;
+}
+
+async function handleCallback() {
+    const params = new URLSearchParams(window.location.search);
+    const code  = params.get('code');
+    const state = params.get('state');
+    const error = params.get('error');
+
+    if (error) {
+        sessionStorage.removeItem('pkce_verifier');
+        sessionStorage.removeItem('oauth_state');
+        window.location.replace('/');
+        return;
+    }
+
+    if (!code) {
+        window.location.replace('/');
+        return;
+    }
+
+    const savedState   = sessionStorage.getItem('oauth_state');
+    const codeVerifier = sessionStorage.getItem('pkce_verifier');
+
+    sessionStorage.removeItem('oauth_state');
+    sessionStorage.removeItem('pkce_verifier');
+
+    if (savedState && state !== savedState) {
+        console.error('[OAuth2] State mismatch — possible CSRF attack.');
+        window.location.replace('/');
+        return;
+    }
+
+    try {
+        updateLastRequest('Exchanging code for tokens…');
+        const body = new URLSearchParams({
+            grant_type:    'authorization_code',
+            client_id:     CLIENT_ID,
+            redirect_uri:  REDIRECT_URI,
+            code:          code,
+            code_verifier: codeVerifier || '',
+        });
+
+        const resp = await fetch(`${AUTH_SERVER}/oauth2/token`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body:    body.toString(),
+        });
+
+        if (!resp.ok) {
+            const text = await resp.text();
+            console.error('[OAuth2] Token exchange failed:', text);
+            window.location.replace('/');
+            return;
+        }
+
+        const data = await resp.json();
+        saveTokens(data);
+        updateLastRequest(`Tokens received · ${new Date().toLocaleTimeString()}`);
+        window.location.replace('/');
+    } catch (err) {
+        console.error('[OAuth2] Token exchange error:', err);
+        window.location.replace('/');
+    }
+}
+
+function logout() {
+    const token = getAccessToken();
+    clearTokens();
+
+    if (token) {
+        const params = new URLSearchParams({
+            id_token_hint:            sessionStorage.getItem('id_token') || '',
+            post_logout_redirect_uri: window.location.origin,
+        });
+        window.location.href = `${AUTH_SERVER}/connect/logout?${params}`;
+    } else {
+        renderUI();
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  API CALLS
+// ═══════════════════════════════════════════════════════════════════
+
+async function apiFetch(path, options = {}) {
+    const token = getAccessToken();
+    const url   = `${RESOURCE_SERVER}${path}`;
+    const start = Date.now();
+
+    const headers = {
+        'Accept': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        ...(options.headers || {}),
+    };
+
+    try {
+        const resp = await fetch(url, { ...options, headers });
+        const ms   = Date.now() - start;
+        updateLastRequest(`${options.method || 'GET'} ${path} → ${resp.status} (${ms}ms)`);
+        return resp;
+    } catch (err) {
+        updateLastRequest(`${options.method || 'GET'} ${path} → NETWORK ERROR`);
+        throw err;
+    }
+}
+
+async function fetchDocuments() {
+    const btn = document.getElementById('fetch-docs-btn');
+    const container = document.getElementById('documents-content');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading-spinner"></span> Loading…';
+    container.innerHTML = '<div class="empty-state"><span class="loading-spinner"></span><div class="empty-text" style="margin-top:8px;">Fetching documents…</div></div>';
+
+    try {
+        const resp = await apiFetch('/api/documents');
+
+        if (!resp.ok) {
+            const errData = await resp.json().catch(() => ({ message: resp.statusText }));
+            container.innerHTML = `<div class="alert alert-error">
+                <span>🚫</span>
+                <div><strong>HTTP ${resp.status}</strong> — ${errData.message || resp.statusText}<br>
+                <small>${resp.status === 401 ? 'Please login first.' : resp.status === 403 ? 'Access denied by OPA policy.' : 'Check the resource server.'}</small></div>
+            </div>`;
+            return;
+        }
+
+        const docs = await resp.json();
+        addAuditEntry('AUDIT', 'documents', `Fetched ${docs.length} document(s)`);
+
+        if (!docs || docs.length === 0) {
+            container.innerHTML = `<div class="alert alert-warn"><span>⚠️</span><span>No documents returned. OPA policy may be filtering results.</span></div>`;
+            return;
+        }
+
+        container.innerHTML = `
+            <table class="doc-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Title</th>
+                        <th>Owner</th>
+                        <th>Classification</th>
+                        <th>Created</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${docs.map(doc => `
+                        <tr>
+                            <td style="color:var(--text-muted);font-family:monospace;font-size:11px;">${escapeHtml(String(doc.id || '—'))}</td>
+                            <td style="font-weight:500;">${escapeHtml(doc.title || doc.name || '—')}</td>
+                            <td style="color:var(--text-secondary);">${escapeHtml(doc.owner || doc.author || '—')}</td>
+                            <td>${classificationBadge(doc.classification || doc.level || 'unknown')}</td>
+                            <td style="color:var(--text-muted);font-size:12px;">${doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : '—'}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+            <div style="margin-top:10px;font-size:12px;color:var(--text-muted);">
+                Showing ${docs.length} document(s) · access controlled by OPA policy
+            </div>`;
+        advanceStep(3);
+    } catch (err) {
+        container.innerHTML = `<div class="alert alert-error"><span>❌</span><div><strong>Network Error</strong><br>${escapeHtml(err.message)}</div></div>`;
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '⟳ Fetch';
+    }
+}
+
+async function listUsers() {
+    const resp = await adminRequest('/api/admin/users', 'List Users');
+    if (resp) {
+        try {
+            const users = await resp.json();
+            showAdminResponse(JSON.stringify(users, null, 2));
+        } catch {
+            showAdminResponse(await resp.text());
+        }
+    }
+}
+
+async function reloadOpaPolicy() {
+    const resp = await adminRequest('/api/admin/opa/reload', 'Reload OPA Policy', { method: 'POST' });
+    if (resp) {
+        const text = await resp.text();
+        showAdminResponse(`OPA reload response:\n${text || '(empty — success)'}`);
+        addAuditEntry('AUDIT', 'admin', 'OPA policy reload triggered');
+    }
+}
+
+async function fetchOpaDecision() {
+    const token = getAccessToken();
+    if (!token) {
+        showAdminResponse('No access token — please login first.');
+        return;
+    }
+    const decoded = decodeJwt(token);
+    const input = {
+        method: 'GET',
+        path:   '/api/documents',
+        roles:  decoded ? (decoded.payload.roles || decoded.payload.authorities || []) : [],
+        sub:    decoded ? (decoded.payload.sub || '') : '',
+    };
+
+    try {
+        const resp = await fetch(`${OPA_SERVER}/v1/data/authz/allow`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ input }),
+        });
+        if (resp.ok) {
+            const data = await resp.json();
+            showAdminResponse(`OPA Decision for current user:\nInput: ${JSON.stringify(input, null, 2)}\n\nResult: ${JSON.stringify(data.result, null, 2)}`);
+        } else {
+            showAdminResponse(`OPA unreachable (${resp.status}). Is OPA running on :8181?`);
+        }
+    } catch {
+        showAdminResponse('OPA unreachable. Is OPA running on :8181?\n\nThis is expected if OPA is not started.');
+    }
+}
+
+async function adminRequest(path, label, options = {}) {
+    const btn = document.getElementById('reload-opa-btn');
+    try {
+        const resp = await apiFetch(path, options);
+        if (resp.status === 403) {
+            showAdminResponse(`403 Forbidden — OPA denied access to ${path}\nYou need ADMIN role (login as alice).`);
+            addAuditEntry('WARN', 'admin', `Access denied: ${path}`);
+            advanceStep(7);
+            return null;
+        }
+        if (!resp.ok) {
+            showAdminResponse(`HTTP ${resp.status} — ${resp.statusText}`);
+            return null;
+        }
+        return resp;
+    } catch (err) {
+        showAdminResponse(`Network error: ${err.message}`);
+        return null;
+    }
+}
+
+function showAdminResponse(text) {
+    const el = document.getElementById('admin-response');
+    el.textContent = text;
+    el.classList.remove('hidden');
+}
+
+async function fetchAuditLog() {
+    const btn   = document.getElementById('fetch-audit-btn');
+    const feed  = document.getElementById('audit-log-feed');
+    const empty = document.getElementById('audit-empty');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading-spinner"></span>';
+
+    try {
+        const resp = await apiFetch('/api/admin/audit');
+
+        if (resp.status === 403) {
+            if (empty) empty.style.display = '';
+            feed.innerHTML = `<div class="alert alert-error"><span>🚫</span><div><strong>403 Forbidden</strong><br>Audit log requires ADMIN role. Login as <strong>alice</strong>.</div></div>`;
+            addAuditEntry('WARN', 'audit', 'Access denied to audit log');
+            advanceStep(7);
+            return;
+        }
+
+        if (!resp.ok) {
+            feed.innerHTML = `<div class="alert alert-error"><span>❌</span><span>HTTP ${resp.status} — ${resp.statusText}</span></div>`;
+            return;
+        }
+
+        const entries = await resp.json();
+        if (empty) empty.style.display = 'none';
+        feed.innerHTML = '';
+
+        (Array.isArray(entries) ? entries : [entries]).forEach(entry => {
+            appendAuditEntry(feed, entry);
+        });
+
+        addAuditEntry('AUDIT', 'self', `Audit log loaded (${Array.isArray(entries) ? entries.length : 1} entries)`);
+        advanceStep(8);
+    } catch (err) {
+        feed.innerHTML = `<div class="alert alert-error"><span>❌</span><span>Network error: ${escapeHtml(err.message)}</span></div>`;
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '⟳ Fetch';
+    }
+}
+
+function appendAuditEntry(feed, entry) {
+    const div = document.createElement('div');
+    div.className = 'log-entry';
+    const ts    = entry.timestamp ? new Date(entry.timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
+    const level = entry.level || entry.eventType || 'AUDIT';
+    const user  = entry.user || entry.subject || entry.principal || '';
+    const msg   = entry.message || entry.action || entry.event || JSON.stringify(entry);
+
+    div.innerHTML = `
+        <span class="log-time">${escapeHtml(ts)}</span>
+        <span class="log-level ${escapeHtml(level)}">${escapeHtml(level)}</span>
+        ${user ? `<span class="log-user">${escapeHtml(user)}</span>` : ''}
+        <span class="log-msg">${escapeHtml(String(msg))}</span>
+    `;
+    feed.appendChild(div);
+    feed.scrollTop = feed.scrollHeight;
+}
+
+// In-browser audit entries (supplemental local log)
+function addAuditEntry(level, user, msg) {
+    const feed  = document.getElementById('audit-log-feed');
+    const empty = document.getElementById('audit-empty');
+    if (empty) empty.style.display = 'none';
+    appendAuditEntry(feed, { level, user, message: msg });
+}
+
+function clearAuditLog() {
+    const feed = document.getElementById('audit-log-feed');
+    feed.innerHTML = `<div class="empty-state" id="audit-empty">
+        <div class="empty-icon">📋</div>
+        <div class="empty-text">Audit log cleared.</div>
+    </div>`;
+}
+
+// ─── Auto Refresh ─────────────────────────────────────────────────
+let autoRefreshInterval = null;
+
+function toggleAutoRefresh() {
+    const tog = document.getElementById('auto-refresh-toggle');
+    if (tog.checked) {
+        fetchAuditLog();
+        autoRefreshInterval = setInterval(fetchAuditLog, 5000);
+        addAuditEntry('INFO', 'system', 'Auto-refresh enabled (5s interval)');
+    } else {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+        addAuditEntry('INFO', 'system', 'Auto-refresh disabled');
+    }
+}
+
+// ─── OPA Policy ───────────────────────────────────────────────────
+async function fetchOpaPolicy() {
+    const btn = document.getElementById('fetch-policy-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading-spinner"></span>';
+
+    try {
+        const resp = await fetch(`${OPA_SERVER}/v1/policies`, {
+            headers: { 'Accept': 'application/json' }
+        });
+
+        if (resp.ok) {
+            const data   = await resp.json();
+            const display = document.getElementById('opa-policy-display');
+            const policies = data.result || [];
+            if (policies.length > 0) {
+                display.innerHTML = policies.map(p =>
+                    `<span class="rego-comment">// Policy ID: ${escapeHtml(p.id)}</span>\n` +
+                    escapeHtml(p.raw || JSON.stringify(p.ast, null, 2))
+                ).join('\n\n---\n\n');
+            } else {
+                display.textContent = '// No policies found in OPA.\n// Is OPA loaded with the authz policy?';
+            }
+            addAuditEntry('INFO', 'opa', 'Policy fetched from OPA server');
+        } else {
+            document.getElementById('opa-policy-display').textContent =
+                `// OPA returned HTTP ${resp.status}\n// Is OPA running on :8181?`;
+        }
+    } catch {
+        document.getElementById('opa-policy-display').textContent =
+            '// OPA unreachable (:8181)\n// Showing embedded policy above.\n// Start OPA to load live policies.';
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '↓ Load';
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  TOKEN INSPECTOR
+// ═══════════════════════════════════════════════════════════════════
+
+function renderTokenInspector(token) {
+    const decoded = decodeJwt(token);
+    if (!decoded) return;
+
+    // Raw token with colored parts
+    const rawEl = document.getElementById('raw-token-display');
+    rawEl.innerHTML =
+        `<span class="jwt-part-1">${escapeHtml(decoded.raw[0])}</span>` +
+        '<span style="color:var(--text-muted);">.</span>' +
+        `<span class="jwt-part-2">${escapeHtml(decoded.raw[1])}</span>` +
+        '<span style="color:var(--text-muted);">.</span>' +
+        `<span class="jwt-part-3">${escapeHtml(decoded.raw[2].substring(0, 20))}…</span>`;
+
+    document.getElementById('jwt-header-view').innerHTML  = syntaxHighlightJson(decoded.header);
+    document.getElementById('jwt-payload-view').innerHTML = syntaxHighlightJson(decoded.payload);
+}
+
+function syntaxHighlightJson(obj) {
+    const json = JSON.stringify(obj, null, 2);
+    return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, match => {
+        if (/^"/.test(match)) {
+            if (/:$/.test(match)) {
+                return `<span class="json-key">${escapeHtml(match)}</span>`;
+            }
+            return `<span class="json-string">${escapeHtml(match)}</span>`;
+        }
+        if (/true|false/.test(match)) return `<span class="json-bool">${match}</span>`;
+        if (/null/.test(match))       return `<span class="json-null">${match}</span>`;
+        return `<span class="json-number">${match}</span>`;
+    });
+}
+
+function copyToken() {
+    const token = getAccessToken();
+    if (!token) return;
+    navigator.clipboard.writeText(token).then(() => {
+        const btn = document.getElementById('copy-token-btn');
+        btn.textContent = '✓ Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+            btn.textContent = 'Copy Token';
+            btn.classList.remove('copied');
+        }, 2000);
+    }).catch(() => {
+        const ta = document.createElement('textarea');
+        ta.value = token;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  EXPIRY COUNTDOWN
+// ═══════════════════════════════════════════════════════════════════
+
+let expiryInterval = null;
+
+function startExpiryCountdown() {
+    if (expiryInterval) clearInterval(expiryInterval);
+    updateExpiry();
+    expiryInterval = setInterval(updateExpiry, 1000);
+}
+
+function stopExpiryCountdown() {
+    if (expiryInterval) { clearInterval(expiryInterval); expiryInterval = null; }
+}
+
+function updateExpiry() {
+    const expiryTs  = parseInt(sessionStorage.getItem('token_expiry_ts')  || '0', 10);
+    const issuedTs  = parseInt(sessionStorage.getItem('token_issued_ts')  || '0', 10);
+    const now       = Date.now();
+    const remaining = Math.max(0, expiryTs - now);
+    const total     = expiryTs - issuedTs;
+
+    const fill       = document.getElementById('expiry-bar-fill');
+    const countdown  = document.getElementById('expiry-countdown');
+    if (!fill || !countdown) return;
+
+    const pct  = total > 0 ? (remaining / total) * 100 : 0;
+    const secs = Math.floor(remaining / 1000);
+    const mins = Math.floor(secs / 60);
+    const s    = secs % 60;
+
+    countdown.textContent = `${String(mins).padStart(2,'0')}:${String(s).padStart(2,'0')} remaining`;
+    fill.style.width      = `${pct}%`;
+    fill.className        = `progress-fill${pct < 20 ? ' danger' : pct < 50 ? ' warn' : ''}`;
+
+    if (remaining === 0) {
+        countdown.textContent = 'EXPIRED';
+        stopExpiryCountdown();
+        clearTokens();
+        renderUI();
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  CONNECTION PROBES
+// ═══════════════════════════════════════════════════════════════════
+
+async function probeConnections() {
+    probeEndpoint('auth',  `${AUTH_SERVER}/.well-known/openid-configuration`, 'conn-auth', 'sb-auth-dot');
+    probeEndpoint('res',   `${RESOURCE_SERVER}/actuator/health`,              'conn-res',  'sb-res-dot');
+    probeEndpoint('opa',   `${OPA_SERVER}/health`,                            'conn-opa',  'sb-opa-dot');
+}
+
+async function probeEndpoint(name, url, pillId, dotId) {
+    const pill = document.getElementById(pillId);
+    const dot  = document.getElementById(dotId);
+    try {
+        const resp = await fetch(url, { signal: AbortSignal.timeout(3000) });
+        const ok   = resp.ok || resp.status === 401;
+        setConnStatus(pill, dot, ok ? 'ok' : 'err');
+    } catch {
+        setConnStatus(pill, dot, 'err');
+    }
+}
+
+function setConnStatus(pill, dot, status) {
+    if (!pill || !dot) return;
+    pill.className = `conn-pill ${status}`;
+    dot.className  = `status-dot ${status === 'ok' ? 'green' : status === 'err' ? 'red' : 'yellow'}`;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  UI RENDERING
+// ═══════════════════════════════════════════════════════════════════
+
+function renderUI() {
+    if (isAuthenticated()) {
+        renderAuthenticated();
+    } else {
+        renderUnauthenticated();
+    }
+    revealPanels();
+}
+
+function renderUnauthenticated() {
+    const badge = document.getElementById('auth-status-badge');
+    badge.className = 'unauthenticated';
+    document.getElementById('auth-dot').className    = 'status-dot red';
+    document.getElementById('auth-status-text').textContent = 'Not Authenticated';
+    document.getElementById('unauthenticated-view').classList.remove('hidden');
+    document.getElementById('authenticated-view').classList.add('hidden');
+    document.title = '🔐 Secure by Default — Spring IO Demo';
+    stopExpiryCountdown();
+    setActiveStep(1);
+}
+
+function renderAuthenticated() {
+    const token   = getAccessToken();
+    const decoded = token ? decodeJwt(token) : null;
+    const payload = decoded ? decoded.payload : {};
+
+    const name  = payload.name || payload.preferred_username || payload.sub || 'User';
+    const email = payload.email || payload.sub || '';
+    const roles = payload.roles || payload.authorities || payload.scope?.split(' ') || [];
+
+    // Header badge
+    const badge = document.getElementById('auth-status-badge');
+    badge.className = 'authenticated';
+    document.getElementById('auth-dot').className = 'status-dot green';
+    document.getElementById('auth-status-text').textContent = `Authenticated`;
+
+    // Page title
+    document.title = `✅ ${name}@demo — Secure by Default`;
+
+    // User card
+    document.getElementById('user-avatar').textContent = name.charAt(0).toUpperCase();
+    document.getElementById('user-name').textContent   = name;
+    document.getElementById('user-email').textContent  = email;
+
+    const rolesEl = document.getElementById('user-roles');
+    rolesEl.innerHTML = roles.map(r => {
+        const clean = String(r).replace('ROLE_', '');
+        const cls   = clean === 'ADMIN' ? 'role-ADMIN' : clean === 'USER' ? 'role-USER' : 'role-default';
+        return `<span class="role-badge ${cls}">${escapeHtml(clean)}</span>`;
+    }).join('');
+
+    document.getElementById('unauthenticated-view').classList.add('hidden');
+    document.getElementById('authenticated-view').classList.remove('hidden');
+
+    // Token inspector
+    if (token) renderTokenInspector(token);
+
+    // Start expiry countdown
+    startExpiryCountdown();
+
+    // Audit log entry
+    addAuditEntry('AUDIT', name, `User authenticated via OAuth2 PKCE · roles: ${roles.join(', ')}`);
+
+    // Advance demo steps
+    advanceStep(2);
+    if (roles.some(r => String(r).includes('ADMIN'))) {
+        // Show admin hint
+        document.querySelector('#admin-content .alert-warn')?.remove();
+    }
+
+    setActiveStep(3);
+}
+
+function revealPanels() {
+    document.querySelectorAll('.panel-fade').forEach((el, i) => {
+        setTimeout(() => el.classList.add('visible'), i * 80);
+    });
+}
+
+// ─── Demo Step Tracker ────────────────────────────────────────────
+let currentStep = 1;
+
+function setActiveStep(n) {
+    document.querySelectorAll('.demo-step').forEach((el, i) => {
+        el.classList.remove('active');
+        if (i + 1 < n) el.classList.add('completed');
+    });
+    const active = document.getElementById(`step-${n}`);
+    if (active) active.classList.add('active');
+    currentStep = n;
+}
+
+function advanceStep(n) {
+    if (n > currentStep) setActiveStep(n);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  UTILITIES
+// ═══════════════════════════════════════════════════════════════════
+
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function classificationBadge(cls) {
+    const c = String(cls).toLowerCase();
+    if (c === 'public')       return `<span class="classification-badge cls-public">public</span>`;
+    if (c === 'internal')     return `<span class="classification-badge cls-internal">internal</span>`;
+    if (c === 'confidential') return `<span class="classification-badge cls-confidential">confidential</span>`;
+    if (c === 'restricted')   return `<span class="classification-badge cls-restricted">restricted</span>`;
+    return `<span class="classification-badge cls-default">${escapeHtml(cls)}</span>`;
+}
+
+function updateLastRequest(msg) {
+    const el = document.getElementById('last-request-info');
+    if (el) el.textContent = msg;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  BOOTSTRAP — handle callback vs main page
+// ═══════════════════════════════════════════════════════════════════
+
+(async function init() {
+    const isCallback =
+        window.location.pathname === '/callback' ||
+        window.location.pathname.endsWith('/callback') ||
+        new URLSearchParams(window.location.search).has('code');
+
+    if (isCallback && new URLSearchParams(window.location.search).has('code')) {
+        await handleCallback();
+        return;
+    }
+
+    renderUI();
+    probeConnections();
+
+    // Re-probe every 30 seconds
+    setInterval(probeConnections, 30000);
+
+    // Initial audit entry
+    addAuditEntry('INFO', 'system', 'Demo application loaded · Spring IO 2025');
+})();
+</script>
+</body>
+</html>

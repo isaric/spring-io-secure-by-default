@@ -1084,7 +1084,7 @@ const AUTH_SERVER    = 'http://localhost:9000';
 const RESOURCE_SERVER = 'http://localhost:8080';
 const OPA_SERVER     = 'http://localhost:8181';
 const CLIENT_ID      = 'frontend-client';
-const REDIRECT_URI   = window.location.origin + '/callback';
+const REDIRECT_URI   = new URL('/callback', window.location.origin).href;
 const SCOPES         = 'openid profile email resource:read';
 
 // ═══════════════════════════════════════════════════════════════════

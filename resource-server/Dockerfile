@@ -13,13 +13,12 @@ RUN mvn package -DskipTests -q
 
 FROM public.ecr.aws/amazoncorretto/amazoncorretto:17-al2023
 
-RUN groupadd --system spring && useradd --system --gid spring spring
-
 WORKDIR /app
 
 COPY --from=build /workspace/app/target/*.jar app.jar
 
-USER spring:spring
+# Use a non-root numeric UID/GID (shadow-utils not present in minimal image)
+USER 1001:1001
 
 EXPOSE 8080
 

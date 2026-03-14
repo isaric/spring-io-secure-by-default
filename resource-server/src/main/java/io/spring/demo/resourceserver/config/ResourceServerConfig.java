@@ -31,6 +31,8 @@ public class ResourceServerConfig {
         http
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            // CSRF protection is not required for stateless JWT Bearer token authentication;
+            // there are no session cookies that could be exploited by cross-site requests.
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/actuator/**").permitAll()

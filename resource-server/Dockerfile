@@ -1,16 +1,17 @@
-FROM eclipse-temurin:17-jdk-alpine AS build
+# maven:3.9-eclipse-temurin-17 is multi-arch (linux/amd64, linux/arm64) and has Maven pre-installed
+FROM maven:3.9-eclipse-temurin-17 AS build
 
 WORKDIR /workspace/app
 
 COPY pom.xml .
 COPY src ./src
 
-RUN apk add --no-cache maven && \
-    mvn package -DskipTests -q
+RUN mvn package -DskipTests -q
 
-FROM eclipse-temurin:17-jre-alpine
+# eclipse-temurin:17-jre-jammy is multi-arch (linux/amd64, linux/arm64)
+FROM eclipse-temurin:17-jre-jammy
 
-RUN addgroup -S spring && adduser -S spring -G spring
+RUN groupadd --system spring && useradd --system --gid spring spring
 
 WORKDIR /app
 

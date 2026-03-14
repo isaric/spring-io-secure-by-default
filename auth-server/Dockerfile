@@ -1,5 +1,8 @@
-# maven:3.9-eclipse-temurin-17 is multi-arch (linux/amd64, linux/arm64) and has Maven pre-installed
-FROM maven:3.9-eclipse-temurin-17 AS build
+# Amazon Corretto 17 on Amazon Linux 2023 - multi-arch (linux/amd64, linux/arm64)
+# Hosted on ECR Public Gallery (no Docker Hub rate limits)
+FROM public.ecr.aws/amazoncorretto/amazoncorretto:17-al2023 AS build
+
+RUN dnf install -y maven && dnf clean all
 
 WORKDIR /workspace/app
 
@@ -8,8 +11,7 @@ COPY src ./src
 
 RUN mvn package -DskipTests -q
 
-# eclipse-temurin:17-jre-jammy is multi-arch (linux/amd64, linux/arm64)
-FROM eclipse-temurin:17-jre-jammy
+FROM public.ecr.aws/amazoncorretto/amazoncorretto:17-al2023
 
 RUN groupadd --system spring && useradd --system --gid spring spring
 

@@ -13,6 +13,8 @@ spring:
 
 opa:
   url: http://opa:8181
+  # Set to false in production to deny requests when OPA is unreachable
+  fail-open: true
 
 logging:
   level:

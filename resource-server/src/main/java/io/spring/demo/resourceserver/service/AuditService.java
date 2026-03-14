@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 @Service
@@ -16,6 +17,7 @@ public class AuditService {
     private static final Logger auditLog = LoggerFactory.getLogger("AUDIT");
     private final MeterRegistry meterRegistry;
     private final List<Map<String, Object>> recentEvents = new CopyOnWriteArrayList<>();
+    private final Map<String, Counter> counterCache = new ConcurrentHashMap<>();
     private static final int MAX_EVENTS = 100;
 
     public AuditService(MeterRegistry meterRegistry) {
@@ -33,11 +35,12 @@ public class AuditService {
 
         auditLog.info("AUDIT event={} subject={} resource={} outcome={}", action, subject, resource, outcome);
 
-        Counter.builder("security.audit.events")
-            .tag("action", action)
-            .tag("outcome", outcome)
-            .register(meterRegistry)
-            .increment();
+        counterCache.computeIfAbsent(action + ":" + outcome, key ->
+            Counter.builder("security.audit.events")
+                .tag("action", action)
+                .tag("outcome", outcome)
+                .register(meterRegistry)
+        ).increment();
 
         recentEvents.add(0, event);
         if (recentEvents.size() > MAX_EVENTS) {

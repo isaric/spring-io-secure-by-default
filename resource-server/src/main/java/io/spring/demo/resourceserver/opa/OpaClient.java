@@ -16,9 +16,14 @@ public class OpaClient {
     private final RestTemplate restTemplate;
     private final String opaUrl;
 
-    public OpaClient(@Value("${opa.url:http://opa:8181}") String opaUrl) {
+    private final boolean failOpen;
+
+    public OpaClient(
+            @Value("${opa.url:http://opa:8181}") String opaUrl,
+            @Value("${opa.fail-open:true}") boolean failOpen) {
         this.restTemplate = new RestTemplate();
         this.opaUrl = opaUrl;
+        this.failOpen = failOpen;
     }
 
     /**
@@ -51,8 +56,8 @@ public class OpaClient {
             return false;
         } catch (Exception e) {
             log.error("Failed to call OPA at {}: {}", opaUrl, e.getMessage());
-            // Fail open for demo purposes - in production, fail closed
-            return true;
+            // Configurable fail behaviour: set opa.fail-open=false in production to fail closed
+            return failOpen;
         }
     }
 }

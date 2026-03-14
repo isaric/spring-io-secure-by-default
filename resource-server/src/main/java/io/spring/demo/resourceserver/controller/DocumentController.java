@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @RestController
 @RequestMapping("/api/documents")
@@ -22,6 +23,7 @@ public class DocumentController {
 
     // In-memory document store for demo
     private static final Map<String, Document> documents = new ConcurrentHashMap<>();
+    private static final AtomicInteger docIdCounter = new AtomicInteger(4);
 
     static {
         documents.put("doc-1", new Document("doc-1", "Q1 Engineering Report", "Engineering Q1 results...", "alice", "internal", "engineering", Instant.now()));
@@ -73,7 +75,7 @@ public class DocumentController {
     public Document createDocument(@RequestBody Document document, @AuthenticationPrincipal Jwt jwt) {
         String subject = jwt.getSubject();
         Document newDoc = new Document(
-            "doc-" + (documents.size() + 1),
+            "doc-" + docIdCounter.incrementAndGet(),
             document.title(),
             document.content(),
             subject,

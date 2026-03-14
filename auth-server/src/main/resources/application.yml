@@ -7,6 +7,9 @@ spring:
   application:
     name: auth-server
 
+auth:
+  issuer-uri: http://localhost:9000
+
 logging:
   level:
     org.springframework.security: DEBUG

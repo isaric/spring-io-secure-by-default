@@ -47,3 +47,9 @@ npm-debug.log*
 # Docker
 .docker/
 auth-server/target/
+
+# SPIRE runtime data (SQLite DB, etc.) - keep directory structure via .gitkeep
+spire/data/server/*
+spire/data/agent/*
+!spire/data/server/.gitkeep
+!spire/data/agent/.gitkeep

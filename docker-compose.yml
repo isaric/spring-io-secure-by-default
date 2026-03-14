@@ -17,7 +17,7 @@ services:
       com.spring.demo: "true"
       com.spring.demo.service: "auth-server"
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9000/actuator/health"]
+      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:9000/actuator/health" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -47,7 +47,7 @@ services:
       com.spring.demo: "true"
       com.spring.demo.service: "resource-server"
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/actuator/health"]
+      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:8080/actuator/health" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -55,7 +55,7 @@ services:
 
   # ─── Open Policy Agent ────────────────────────────────────────────────────
   opa:
-    image: openpolicyagent/opa:latest-rootless
+    image: openpolicyagent/opa:latest
     container_name: opa
     ports:
       - "8181:8181"
@@ -75,7 +75,7 @@ services:
       com.spring.demo: "true"
       com.spring.demo.service: "opa"
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8181/health"]
+      test: [ "CMD", "/opa", "version" ]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -109,7 +109,7 @@ services:
       - "8081:8081"
     volumes:
       - ./spire/server:/opt/spire/conf/server:ro
-      - spire-server-data:/opt/spire/data/server
+      - ./spire/data/server:/opt/spire/data/server
       - spire-server-socket:/tmp/spire-server/private
     command:
       - "-config"
@@ -120,7 +120,7 @@ services:
       com.spring.demo: "true"
       com.spring.demo.service: "spire-server"
     healthcheck:
-      test: ["CMD", "/opt/spire/bin/spire-server", "healthcheck", "-socketPath", "/tmp/spire-server/private/api.sock"]
+      test: [ "CMD", "/opt/spire/bin/spire-server", "healthcheck", "-socketPath", "/tmp/spire-server/private/api.sock" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -133,7 +133,7 @@ services:
     hostname: spire-agent
     volumes:
       - ./spire/agent:/opt/spire/conf/agent:ro
-      - spire-agent-data:/opt/spire/data/agent
+      - ./spire/data/agent:/opt/spire/data/agent
       - spire-agent-socket:/tmp/spire-agent/public
       - /var/run/docker.sock:/var/run/docker.sock:ro
     command:
@@ -227,7 +227,7 @@ services:
     labels:
       com.spring.demo: "true"
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
+      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -241,7 +241,5 @@ volumes:
   prometheus-data:
   loki-data:
   grafana-data:
-  spire-server-data:
   spire-server-socket:
-  spire-agent-data:
   spire-agent-socket:

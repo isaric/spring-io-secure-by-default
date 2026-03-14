@@ -55,7 +55,9 @@ services:
 
   # ─── Open Policy Agent ────────────────────────────────────────────────────
   opa:
-    image: public.ecr.aws/openpolicyagent/opa:latest
+    build:
+      context: ./opa
+      dockerfile: Dockerfile
     container_name: opa
     ports:
       - "8181:8181"
@@ -172,7 +174,9 @@ services:
 
   # ─── Loki ─────────────────────────────────────────────────────────────────
   loki:
-    image: public.ecr.aws/grafana/loki:latest
+    build:
+      context: ./observability/loki
+      dockerfile: Dockerfile
     container_name: loki
     ports:
       - "3100:3100"
@@ -187,7 +191,9 @@ services:
 
   # ─── Promtail ─────────────────────────────────────────────────────────────
   promtail:
-    image: public.ecr.aws/grafana/promtail:latest
+    build:
+      context: ./observability/promtail
+      dockerfile: Dockerfile
     container_name: promtail
     volumes:
       - ./observability/promtail/promtail-config.yml:/etc/promtail/config.yml:ro
@@ -201,37 +207,6 @@ services:
     labels:
       com.spring.demo: "true"
 
-  # ─── Grafana ──────────────────────────────────────────────────────────────
-  grafana:
-    image: public.ecr.aws/grafana/grafana:latest
-    container_name: grafana
-    ports:
-      - "3001:3000"
-    environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-demo1234}
-      - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_AUTH_ANONYMOUS_ENABLED=true
-      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
-      - GF_INSTALL_PLUGINS=grafana-clock-panel
-    volumes:
-      - ./observability/grafana/datasources:/etc/grafana/provisioning/datasources:ro
-      - ./observability/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
-      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
-      - grafana-data:/var/lib/grafana
-    networks:
-      - demo-network
-    depends_on:
-      - prometheus
-      - loki
-    labels:
-      com.spring.demo: "true"
-    healthcheck:
-      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
 
 networks:
   demo-network:
@@ -240,6 +215,5 @@ networks:
 volumes:
   prometheus-data:
   loki-data:
-  grafana-data:
   spire-server-socket:
   spire-agent-socket:

@@ -55,7 +55,7 @@ services:
 
   # ─── Open Policy Agent ────────────────────────────────────────────────────
   opa:
-    image: openpolicyagent/opa:latest
+    image: public.ecr.aws/openpolicyagent/opa:latest
     container_name: opa
     ports:
       - "8181:8181"
@@ -152,7 +152,7 @@ services:
 
   # ─── Prometheus ───────────────────────────────────────────────────────────
   prometheus:
-    image: prom/prometheus:latest
+    image: quay.io/prometheus/prometheus:latest
     container_name: prometheus
     ports:
       - "9090:9090"
@@ -172,7 +172,7 @@ services:
 
   # ─── Loki ─────────────────────────────────────────────────────────────────
   loki:
-    image: grafana/loki:latest
+    image: public.ecr.aws/grafana/loki:latest
     container_name: loki
     ports:
       - "3100:3100"
@@ -187,7 +187,7 @@ services:
 
   # ─── Promtail ─────────────────────────────────────────────────────────────
   promtail:
-    image: grafana/promtail:latest
+    image: public.ecr.aws/grafana/promtail:latest
     container_name: promtail
     volumes:
       - ./observability/promtail/promtail-config.yml:/etc/promtail/config.yml:ro
@@ -203,7 +203,7 @@ services:
 
   # ─── Grafana ──────────────────────────────────────────────────────────────
   grafana:
-    image: grafana/grafana:latest
+    image: public.ecr.aws/grafana/grafana:latest
     container_name: grafana
     ports:
       - "3001:3000"

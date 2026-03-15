@@ -16,12 +16,6 @@ services:
     labels:
       com.spring.demo: "true"
       com.spring.demo.service: "auth-server"
-    healthcheck:
-      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:9000/actuator/health" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
 
   # ─── Resource Server ──────────────────────────────────────────────────────
   resource-server:
@@ -39,19 +33,11 @@ services:
     networks:
       - demo-network
     depends_on:
-      auth-server:
-        condition: service_healthy
       opa:
         condition: service_healthy
     labels:
       com.spring.demo: "true"
       com.spring.demo.service: "resource-server"
-    healthcheck:
-      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:8080/actuator/health" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
 
   # ─── Open Policy Agent ────────────────────────────────────────────────────
   opa:
@@ -96,11 +82,6 @@ services:
     labels:
       com.spring.demo: "true"
       com.spring.demo.service: "frontend"
-    depends_on:
-      auth-server:
-        condition: service_healthy
-      resource-server:
-        condition: service_healthy
 
   # ─── SPIRE Server ─────────────────────────────────────────────────────────
   spire-server:

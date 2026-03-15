@@ -9,6 +9,7 @@ spring:
 
 auth:
   issuer-uri: http://localhost:9000
+  frontend-uri: http://localhost:3000
 
 logging:
   level:

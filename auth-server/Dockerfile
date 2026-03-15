@@ -2,7 +2,7 @@
 # Hosted on ECR Public Gallery (no Docker Hub rate limits)
 FROM public.ecr.aws/amazoncorretto/amazoncorretto:17-al2023 AS build
 
-RUN dnf install -y maven && dnf clean all
+RUN dnf install -y maven && dnf install -y wget && dnf clean all
 
 WORKDIR /workspace/app
 

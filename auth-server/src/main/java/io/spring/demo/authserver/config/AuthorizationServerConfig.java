@@ -88,6 +88,12 @@ public class AuthorizationServerConfig {
                 .formLogin(form -> form
                         .loginPage("/login")
                         .permitAll()
+                )
+                .logout(logout -> logout
+                        .logoutSuccessUrl(frontendUri)
+                        .invalidateHttpSession(true)
+                        .deleteCookies("JSESSIONID")
+                        .permitAll()
                 );
         return http.build();
     }
@@ -137,7 +143,7 @@ public class AuthorizationServerConfig {
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
                 .redirectUri("http://localhost:3000/callback")
                 .redirectUri("http://localhost:9090/login/oauth2/code/frontend-client")
-                .postLogoutRedirectUri("http://localhost:3000/")
+                .postLogoutRedirectUri("http://localhost:3000")
                 .scope(OidcScopes.OPENID)
                 .scope(OidcScopes.PROFILE)
                 .scope(OidcScopes.EMAIL)

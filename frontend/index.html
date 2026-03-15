@@ -1270,11 +1270,12 @@ async function handleCallback() {
 
 function logout() {
     const token = getAccessToken();
+    const idToken = sessionStorage.getItem('id_token');
     clearTokens();
 
-    if (token) {
+    if (token && idToken) {
         const params = new URLSearchParams({
-            id_token_hint:            sessionStorage.getItem('id_token') || '',
+            id_token_hint:            idToken,
             post_logout_redirect_uri: window.location.origin,
         });
         window.location.href = `${AUTH_SERVER}/connect/logout?${params}`;
@@ -1409,9 +1410,9 @@ async function fetchOpaDecision() {
     };
 
     try {
-        const resp = await fetch(`${OPA_SERVER}/v1/data/authz/allow`, {
+        const resp = await fetch(`${RESOURCE_SERVER}/api/opa/decision`, {
             method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body:    JSON.stringify({ input }),
         });
         if (resp.ok) {
@@ -1551,8 +1552,9 @@ async function fetchOpaPolicy() {
     btn.innerHTML = '<span class="loading-spinner"></span>';
 
     try {
-        const resp = await fetch(`${OPA_SERVER}/v1/policies`, {
-            headers: { 'Accept': 'application/json' }
+        const token = getAccessToken();
+        const resp = await fetch(`${RESOURCE_SERVER}/api/opa/policy`, {
+            headers: { 'Accept': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) }
         });
 
         if (resp.ok) {
@@ -1689,7 +1691,7 @@ function updateExpiry() {
 async function probeConnections() {
     probeEndpoint('auth',  `${AUTH_SERVER}/.well-known/openid-configuration`, 'conn-auth', 'sb-auth-dot');
     probeEndpoint('res',   `${RESOURCE_SERVER}/actuator/health`,              'conn-res',  'sb-res-dot');
-    probeEndpoint('opa',   `${OPA_SERVER}/health`,                            'conn-opa',  'sb-opa-dot');
+    probeEndpoint('opa',   `${RESOURCE_SERVER}/api/opa/health`,               'conn-opa',  'sb-opa-dot');
 }
 
 async function probeEndpoint(name, url, pillId, dotId) {

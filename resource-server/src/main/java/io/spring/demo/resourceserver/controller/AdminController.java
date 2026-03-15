@@ -37,7 +37,7 @@ public class AdminController {
         return auditService.getRecentEvents();
     }
 
-    @PostMapping("/policy/reload")
+    @PostMapping("/opa/reload")
     public Map<String, String> reloadPolicy(@AuthenticationPrincipal Jwt jwt) {
         auditService.audit("RELOAD_POLICY", jwt.getSubject(), "opa-policy", "SUCCESS");
         return Map.of("message", "Policy reload triggered", "status", "success");

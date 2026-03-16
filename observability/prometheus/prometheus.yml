@@ -1,0 +1,24 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    environment: 'demo'
+
+scrape_configs:
+  - job_name: 'auth-server'
+    static_configs:
+      - targets: ['auth-server:9000']
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 10s
+
+  - job_name: 'resource-server'
+    static_configs:
+      - targets: ['resource-server:8080']
+    metrics_path: '/actuator/prometheus'
+    scrape_interval: 10s
+
+  - job_name: 'opa'
+    static_configs:
+      - targets: ['opa:8181']
+    metrics_path: '/metrics'
+    scrape_interval: 10s

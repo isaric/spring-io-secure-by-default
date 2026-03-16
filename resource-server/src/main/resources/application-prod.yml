@@ -1,0 +1,7 @@
+opa:
+  fail-open: false
+
+logging:
+  level:
+    org.springframework.security: WARN
+    io.spring.demo: INFO

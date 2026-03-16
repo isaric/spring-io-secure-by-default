@@ -1,0 +1,32 @@
+server:
+  port: 9000
+  ssl:
+    enabled: false
+
+spring:
+  application:
+    name: auth-server
+
+auth:
+  issuer-uri: http://localhost:9000
+  frontend-uri: http://localhost:3000
+
+logging:
+  level:
+    org.springframework.security: DEBUG
+    io.spring.demo: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+  endpoint:
+    health:
+      show-details: always

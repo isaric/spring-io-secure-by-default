@@ -1,0 +1,200 @@
+services:
+
+  # ─── Authorization Server ─────────────────────────────────────────────────
+  auth-server:
+    build:
+      context: ./auth-server
+      dockerfile: Dockerfile
+    container_name: auth-server
+    ports:
+      - "9000:9000"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - AUTH_ISSUER_URI=http://auth-server:9000
+    networks:
+      - demo-network
+    labels:
+      com.spring.demo: "true"
+      com.spring.demo.service: "auth-server"
+
+  # ─── Resource Server ──────────────────────────────────────────────────────
+  resource-server:
+    build:
+      context: ./resource-server
+      dockerfile: Dockerfile
+    container_name: resource-server
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI=http://auth-server:9000/oauth2/jwks
+      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=http://auth-server:9000
+      - OPA_URL=http://opa:8181
+    networks:
+      - demo-network
+    depends_on:
+      opa:
+        condition: service_healthy
+    labels:
+      com.spring.demo: "true"
+      com.spring.demo.service: "resource-server"
+
+  # ─── Open Policy Agent ────────────────────────────────────────────────────
+  opa:
+    build:
+      context: ./opa
+      dockerfile: Dockerfile
+    container_name: opa
+    ports:
+      - "8181:8181"
+    command:
+      - "run"
+      - "--server"
+      - "--addr=0.0.0.0:8181"
+      - "--log-format=json"
+      - "--log-level=info"
+      - "--set=decision_logs.console=true"
+      - "/policies"
+    volumes:
+      - ./opa/policies:/policies:ro
+    networks:
+      - demo-network
+    labels:
+      com.spring.demo: "true"
+      com.spring.demo.service: "opa"
+    healthcheck:
+      test: [ "CMD", "/opa", "version" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  # ─── Frontend ─────────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "3000:3000"
+    networks:
+      - demo-network
+    labels:
+      com.spring.demo: "true"
+      com.spring.demo.service: "frontend"
+
+  # ─── SPIRE Server ─────────────────────────────────────────────────────────
+  spire-server:
+    image: ghcr.io/spiffe/spire-server:1.10.0
+    container_name: spire-server
+    hostname: spire-server
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./spire/server:/opt/spire/conf/server:ro
+      - ./spire/data/server:/opt/spire/data/server
+      - spire-server-socket:/tmp/spire-server/private
+    command:
+      - "-config"
+      - "/opt/spire/conf/server/server.conf"
+    networks:
+      - demo-network
+    labels:
+      com.spring.demo: "true"
+      com.spring.demo.service: "spire-server"
+    healthcheck:
+      test: [ "CMD", "/opt/spire/bin/spire-server", "healthcheck", "-socketPath", "/tmp/spire-server/private/api.sock" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ─── SPIRE Agent ──────────────────────────────────────────────────────────
+  spire-agent:
+    image: ghcr.io/spiffe/spire-agent:1.10.0
+    container_name: spire-agent
+    hostname: spire-agent
+    volumes:
+      - ./spire/agent:/opt/spire/conf/agent:ro
+      - ./spire/data/agent:/opt/spire/data/agent
+      - spire-agent-socket:/tmp/spire-agent/public
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command:
+      - "-config"
+      - "/opt/spire/conf/agent/agent.conf"
+    networks:
+      - demo-network
+    environment:
+      - SPIRE_JOIN_TOKEN=${SPIRE_JOIN_TOKEN:-demo-join-token-change-me}
+    depends_on:
+      spire-server:
+        condition: service_healthy
+    labels:
+      com.spring.demo: "true"
+      com.spring.demo.service: "spire-agent"
+
+  # ─── Prometheus ───────────────────────────────────────────────────────────
+  prometheus:
+    image: quay.io/prometheus/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/etc/prometheus/console_libraries"
+      - "--web.console.templates=/etc/prometheus/consoles"
+      - "--web.enable-lifecycle"
+    networks:
+      - demo-network
+    labels:
+      com.spring.demo: "true"
+
+  # ─── Loki ─────────────────────────────────────────────────────────────────
+  loki:
+    build:
+      context: ./observability/loki
+      dockerfile: Dockerfile
+    container_name: loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./observability/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - demo-network
+    labels:
+      com.spring.demo: "true"
+
+  # ─── Promtail ─────────────────────────────────────────────────────────────
+  promtail:
+    build:
+      context: ./observability/promtail
+      dockerfile: Dockerfile
+    container_name: promtail
+    volumes:
+      - ./observability/promtail/promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/log:/var/log:ro
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - demo-network
+    depends_on:
+      - loki
+    labels:
+      com.spring.demo: "true"
+
+
+networks:
+  demo-network:
+    driver: bridge
+
+volumes:
+  prometheus-data:
+  loki-data:
+  spire-server-socket:
+  spire-agent-socket:

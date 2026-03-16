@@ -22,3 +22,34 @@
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+
+# Maven build output
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.eclipse
+.project
+.classpath
+.settings/
+*.DS_Store
+
+# Node / npm
+node_modules/
+npm-debug.log*
+
+# Environment
+.env
+.env.local
+
+# Docker
+.docker/
+auth-server/target/
+
+# SPIRE runtime data (SQLite DB, etc.) - keep directory structure via .gitkeep
+spire/data/server/*
+spire/data/agent/*
+!spire/data/server/.gitkeep
+!spire/data/agent/.gitkeep

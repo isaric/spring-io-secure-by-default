@@ -30,10 +30,15 @@ services:
       - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI=http://auth-server:9000/oauth2/jwks
       - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=http://auth-server:9000
       - OPA_URL=http://opa:8181
+    volumes:
+      - spire-agent-socket:/tmp/spire-agent/public:ro
+      - spire-certs:/spire-certs:ro
     networks:
       - demo-network
     depends_on:
       opa:
+        condition: service_healthy
+      spire-cert-watcher:
         condition: service_healthy
     labels:
       com.spring.demo: "true"
@@ -77,11 +82,50 @@ services:
     container_name: frontend
     ports:
       - "3000:3000"
+    volumes:
+      - spire-certs:/spire-certs:ro
     networks:
       - demo-network
+    depends_on:
+      - resource-server
     labels:
       com.spring.demo: "true"
       com.spring.demo.service: "frontend"
+
+  # ─── SPIRE Cert Watcher ───────────────────────────────────────────────────
+  # Continuously fetches X.509 SVIDs via the Workload API and writes PEM files
+  # to the spire-certs shared volume. Spring Boot reloads certs on every update.
+  spire-cert-watcher:
+    build:
+      context: ./spire
+      dockerfile: Dockerfile.cert-watcher
+    container_name: spire-cert-watcher
+    volumes:
+      - spire-agent-socket:/tmp/spire-agent/public:ro
+      - spire-certs:/spire-certs
+      - ./spire/watch-certs.sh:/watch-certs.sh:ro
+    networks:
+      - demo-network
+    depends_on:
+      spire-agent:
+        condition: service_started
+      spire-workload-registration:
+        condition: service_completed_successfully
+    labels:
+      com.spring.demo: "true"
+      # Must match the registered workload selector so SPIRE attests this
+      # container as the resource-server identity and issues it an SVID.
+      com.spring.demo.service: "resource-server"
+    restart: on-failure
+    # Healthy once the first SVID has been written to the shared volume.
+    # resource-server waits on this before starting so Spring Boot's file
+    # watcher can register the cert paths without "not a file or directory".
+    healthcheck:
+      test: [ "CMD", "sh", "-c", "test -f /spire-certs/svid.pem && test -f /spire-certs/svid-key.pem && test -f /spire-certs/bundle.pem" ]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
 
   # ─── SPIRE Server ─────────────────────────────────────────────────────────
   spire-server:
@@ -109,26 +153,63 @@ services:
       retries: 5
       start_period: 15s
 
+  # ─── SPIRE Token Generator ────────────────────────────────────────────────
+  # Generates a fresh join token before the agent starts (one-time use tokens)
+  spire-token-init:
+    image: alpine:3.19
+    container_name: spire-token-init
+    command: ["/bin/sh", "-c", "apk add --no-cache docker-cli && echo 'Generating token via docker exec...' && TOKEN=$(docker exec spire-server /opt/spire/bin/spire-server token generate -socketPath /tmp/spire-server/private/api.sock -spiffeID spiffe://demo.spring.io/agent/demo -ttl 600 2>/dev/null | grep 'Token:' | awk '{print $$2}') && echo \"$$TOKEN\" > /token/join-token && echo \"Token generated: $${TOKEN:0:20}...\" && echo 'Init complete!'"]
+    volumes:
+      - spire-join-token:/token
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - demo-network
+    depends_on:
+      spire-server:
+        condition: service_healthy
+    labels:
+      com.spring.demo: "true"
+
+  # ─── SPIRE Workload Registration ──────────────────────────────────────────
+  # Registers workload identities after agent attestation (one-time setup)
+  spire-workload-registration:
+    build:
+      context: ./spire
+      dockerfile: Dockerfile.registration
+    container_name: spire-workload-registration
+    volumes:
+      - spire-server-socket:/tmp/spire-server/private
+    networks:
+      - demo-network
+    depends_on:
+      spire-agent:
+        condition: service_started
+    labels:
+      com.spring.demo: "true"
+
   # ─── SPIRE Agent ──────────────────────────────────────────────────────────
   spire-agent:
-    image: ghcr.io/spiffe/spire-agent:1.10.0
+    build:
+      context: ./spire
+      dockerfile: Dockerfile.agent-with-shell
     container_name: spire-agent
     hostname: spire-agent
+    pid: host
+    privileged: true
     volumes:
       - ./spire/agent:/opt/spire/conf/agent:ro
       - ./spire/data/agent:/opt/spire/data/agent
       - spire-agent-socket:/tmp/spire-agent/public
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    command:
-      - "-config"
-      - "/opt/spire/conf/agent/agent.conf"
+      - spire-join-token:/token:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
     networks:
       - demo-network
-    environment:
-      - SPIRE_JOIN_TOKEN=${SPIRE_JOIN_TOKEN:-demo-join-token-change-me}
     depends_on:
       spire-server:
         condition: service_healthy
+      spire-token-init:
+        condition: service_completed_successfully
     labels:
       com.spring.demo: "true"
       com.spring.demo.service: "spire-agent"
@@ -198,3 +279,5 @@ volumes:
   loki-data:
   spire-server-socket:
   spire-agent-socket:
+  spire-join-token:
+  spire-certs:

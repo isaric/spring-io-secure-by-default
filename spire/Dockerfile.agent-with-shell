@@ -1,0 +1,14 @@
+FROM alpine:3.19 AS shell
+# Prepare a minimal busybox environment
+
+FROM ghcr.io/spiffe/spire-agent:1.10.0
+
+# Copy sh and necessary busybox tools from alpine
+COPY --from=shell /bin/sh /bin/sh
+COPY --from=shell /bin/cat /bin/cat
+COPY --from=shell /lib/ld-musl-*.so.1 /lib/
+
+# Copy our startup script
+COPY load-token-and-start.sh /load-token-and-start.sh
+
+ENTRYPOINT ["/bin/sh", "/load-token-and-start.sh"]

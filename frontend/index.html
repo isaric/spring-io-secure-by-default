@@ -662,6 +662,113 @@
             overflow-y: auto;
         }
 
+        /* ── SPIFFE rotation card ── */
+        #spiffe-card .spiffe-id {
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 12px;
+            color: var(--spring-green-light);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-accent);
+            border-radius: var(--radius);
+            padding: 6px 12px;
+            margin-bottom: 14px;
+            word-break: break-all;
+        }
+        .cert-meta-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .cert-meta-item {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 8px 12px;
+        }
+        .cert-meta-label {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
+            margin-bottom: 2px;
+        }
+        .cert-meta-value {
+            font-family: monospace;
+            font-size: 12px;
+            color: var(--text-primary);
+            word-break: break-all;
+        }
+        .cert-serial-wrap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .cert-serial-value {
+            font-family: monospace;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--spring-green-light);
+            transition: color 0.3s;
+        }
+        .cert-serial-value.rotating {
+            color: var(--yellow);
+            animation: serialFlash 1s ease;
+        }
+        @keyframes serialFlash {
+            0%   { background: rgba(227,179,65,0.25); border-radius: 4px; }
+            100% { background: transparent; }
+        }
+        .rotation-badge {
+            background: var(--green-bg);
+            border: 1px solid var(--spring-green);
+            color: var(--spring-green-light);
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 1px 8px;
+        }
+        .cert-expiry-section { margin-bottom: 14px; }
+        .cert-expiry-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+        }
+        .cert-expiry-label .expiry-time {
+            font-family: monospace;
+            font-weight: 700;
+            color: var(--spring-green-light);
+        }
+        .rotation-feed {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 10px 12px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 130px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        .rotation-entry {
+            display: flex;
+            gap: 10px;
+            color: var(--text-secondary);
+            animation: fadeIn 0.4s ease;
+            border-bottom: 1px solid rgba(48,54,61,0.3);
+            padding-bottom: 3px;
+        }
+        .rotation-entry:last-child { border-bottom: none; }
+        .rotation-entry .r-time { color: var(--text-muted); flex-shrink: 0; }
+        .rotation-entry .r-event { color: var(--spring-green-light); flex-shrink: 0; }
+        .rotation-entry .r-serial { color: var(--yellow); }
+        .spiffe-status-pending { color: var(--yellow); font-size: 12px; }
+
         /* ── Connection probe ── */
         .conn-pill {
             display: inline-flex;
@@ -786,6 +893,66 @@
                         <div class="progress-track">
                             <div class="progress-fill" id="expiry-bar-fill" style="width:100%"></div>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── SPIFFE Identity & Cert Rotation ── -->
+        <div class="card panel-fade visible" id="spiffe-card">
+            <div class="card-header">
+                <span class="card-icon">🔒</span>
+                <span class="card-title">SPIFFE Identity — Live Certificate Rotation</span>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span id="spiffe-rotation-count" class="rotation-badge hidden">0 rotations</span>
+                    <span class="conn-pill checking" id="spiffe-status-pill" data-tip="SPIRE cert watcher">⬤ SPIRE</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Pending state -->
+                <div id="spiffe-pending" class="empty-state">
+                    <div class="empty-icon">⏳</div>
+                    <div class="empty-text spiffe-status-pending">Waiting for SPIRE agent attestation…<br>
+                    <small style="color:var(--text-muted);">Start the stack with <code>docker compose up</code> and register workloads.</small></div>
+                </div>
+                <!-- Active state -->
+                <div id="spiffe-active" class="hidden">
+                    <div class="spiffe-id" id="spiffe-id-display">—</div>
+                    <div class="cert-meta-grid">
+                        <div class="cert-meta-item">
+                            <div class="cert-meta-label">Serial Number</div>
+                            <div class="cert-serial-wrap">
+                                <span class="cert-serial-value" id="cert-serial">—</span>
+                            </div>
+                        </div>
+                        <div class="cert-meta-item">
+                            <div class="cert-meta-label">Issuer</div>
+                            <div class="cert-meta-value" id="cert-issuer" style="font-size:11px;">—</div>
+                        </div>
+                    </div>
+                    <div class="cert-expiry-section">
+                        <div class="cert-expiry-label">
+                            <span>Cert Expiry (SVID TTL: 60s)</span>
+                            <span class="expiry-time" id="cert-expiry-countdown">—</span>
+                        </div>
+                        <div class="progress-track">
+                            <div class="progress-fill" id="cert-expiry-bar" style="width:100%"></div>
+                        </div>
+                        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+                            Not After: <span id="cert-not-after">—</span>
+                        </div>
+                    </div>
+                    <div style="margin-bottom:8px;">
+                        <div class="token-section-title" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-secondary);margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+                            Rotation Events
+                            <span style="flex:1;height:1px;background:var(--border);display:inline-block;"></span>
+                        </div>
+                        <div class="rotation-feed" id="rotation-feed">
+                            <div style="color:var(--text-muted);font-size:11px;">Watching for rotations…</div>
+                        </div>
+                    </div>
+                    <div style="font-size:11px;color:var(--text-muted);">
+                        SHA-256: <span id="cert-fingerprint" style="font-family:monospace;">—</span>
                     </div>
                 </div>
             </div>
@@ -1001,10 +1168,20 @@ restricted_path if {
                 <div class="arch-row" style="padding-left:80px;">
                     <div class="arch-box opa">⚖️ OPA :8181</div>
                 </div>
+                <div class="arch-row" style="padding-left:10px;">
+                    <div class="arch-arrow" style="transform:rotate(90deg);padding:0 2px;">↕</div>
+                    <div style="font-size:11px;color:var(--text-muted);">X.509 SVID</div>
+                </div>
+                <div class="arch-row">
+                    <div class="arch-box" style="border-color:var(--yellow);color:var(--yellow);">🔑 SPIRE :8081</div>
+                    <div class="arch-arrow">→</div>
+                    <div style="font-size:11px;color:var(--text-muted);">rotates every 60s</div>
+                </div>
                 <div style="margin-top:8px;padding:8px;background:var(--bg-secondary);border-radius:var(--radius);font-size:11px;color:var(--text-muted);">
                     <div>🔄 PKCE: no client_secret</div>
                     <div>🔒 JWTs validated by resource server</div>
                     <div>📜 Rego policies enforced at runtime</div>
+                    <div>🔑 SVIDs rotate via SPIRE workload API</div>
                 </div>
             </div>
         </div>
@@ -1060,7 +1237,7 @@ restricted_path if {
     <div class="status-item">
         <span class="status-dot yellow" id="sb-res-dot"></span>
         <span class="status-label">Resource Server</span>
-        <span id="sb-res-url" style="color:var(--text-muted);font-size:11px;">http://localhost:8080</span>
+        <span id="sb-res-url" style="color:var(--text-muted);font-size:11px;">→ resource-server:8080 (via proxy)</span>
     </div>
     <div class="status-item">
         <span class="status-dot yellow" id="sb-opa-dot"></span>
@@ -1081,7 +1258,10 @@ restricted_path if {
 //  CONFIGURATION
 // ═══════════════════════════════════════════════════════════════════
 const AUTH_SERVER    = 'http://localhost:9000';
-const RESOURCE_SERVER = 'http://localhost:8080';
+// API calls go through the nginx reverse proxy (same origin).
+// nginx forwards /api/* and /actuator/* to resource-server.
+// When resource-server is upgraded to HTTPS+mTLS, only nginx.conf needs updating.
+const RESOURCE_SERVER = '';
 const OPA_SERVER     = 'http://localhost:8181';
 const CLIENT_ID      = 'frontend-client';
 const REDIRECT_URI   = new URL('/callback', window.location.origin).href;
@@ -1713,6 +1893,143 @@ function setConnStatus(pill, dot, status) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+//  SPIFFE CERT ROTATION WATCHER
+// ═══════════════════════════════════════════════════════════════════
+
+const SPIFFE_POLL_MS = 5000;
+let _lastSerial = null;
+let _certNotAfterTs = null;
+let _certNotBeforeTs = null;
+let _certExpiryInterval = null;
+let _rotationHistory = [];
+
+async function pollSpiffeCert() {
+    try {
+        const resp = await fetch('/cert-info.json', {
+            cache: 'no-store',
+            signal: AbortSignal.timeout(3000),
+        });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const info = await resp.json();
+        renderSpiffeCert(info);
+        setConnStatus(
+            document.getElementById('spiffe-status-pill'),
+            null,
+            info.status === 'active' ? 'ok' : 'checking'
+        );
+    } catch {
+        setConnStatus(document.getElementById('spiffe-status-pill'), null, 'err');
+    }
+}
+
+function renderSpiffeCert(info) {
+    const pending = document.getElementById('spiffe-pending');
+    const active  = document.getElementById('spiffe-active');
+
+    if (!info || info.status !== 'active') {
+        pending.classList.remove('hidden');
+        active.classList.add('hidden');
+        return;
+    }
+
+    pending.classList.add('hidden');
+    active.classList.remove('hidden');
+
+    // SPIFFE ID
+    document.getElementById('spiffe-id-display').textContent = info.spiffeId || '—';
+
+    // Rotation count badge
+    const badge = document.getElementById('spiffe-rotation-count');
+    if (info.rotationCount > 0) {
+        badge.textContent = `${info.rotationCount} rotation${info.rotationCount !== 1 ? 's' : ''}`;
+        badge.classList.remove('hidden');
+    }
+
+    // Serial — flash on change
+    const serialEl = document.getElementById('cert-serial');
+    const newSerial = info.serial || '—';
+    if (_lastSerial !== null && _lastSerial !== newSerial) {
+        // Rotation detected!
+        serialEl.classList.add('rotating');
+        setTimeout(() => serialEl.classList.remove('rotating'), 1200);
+        addRotationEvent(newSerial, info.rotationCount);
+    } else if (_lastSerial === null && newSerial !== '—') {
+        // First cert seen
+        addRotationEvent(newSerial, info.rotationCount, true);
+    }
+    _lastSerial = newSerial;
+    serialEl.textContent = newSerial;
+
+    // Issuer (shorten for display)
+    const issuerRaw = info.issuer || '—';
+    const cn = issuerRaw.match(/CN\s*=\s*([^,/]+)/i);
+    document.getElementById('cert-issuer').textContent = cn ? cn[1].trim() : issuerRaw;
+
+    // Not After display
+    document.getElementById('cert-not-after').textContent = info.notAfter || '—';
+
+    // Parse expiry for countdown
+    if (info.notAfter && info.notAfter !== '—') {
+        const after  = new Date(info.notAfter);
+        const before = info.notBefore ? new Date(info.notBefore) : null;
+        if (!isNaN(after.getTime())) {
+            _certNotAfterTs  = after.getTime();
+            _certNotBeforeTs = before && !isNaN(before.getTime()) ? before.getTime() : Date.now();
+        }
+    }
+
+    // Fingerprint (shorten)
+    const fp = info.fingerprint || '—';
+    document.getElementById('cert-fingerprint').textContent =
+        fp.length > 32 ? fp.substring(0, 29) + '…' : fp;
+}
+
+function addRotationEvent(serial, count, isFirst = false) {
+    const feed  = document.getElementById('rotation-feed');
+    const now   = new Date().toLocaleTimeString();
+    const label = isFirst ? 'Initial cert' : 'Rotated';
+
+    // Clear placeholder text on first real event
+    if (_rotationHistory.length === 0) feed.innerHTML = '';
+
+    const entry = document.createElement('div');
+    entry.className = 'rotation-entry';
+    entry.innerHTML =
+        `<span class="r-time">${escapeHtml(now)}</span>` +
+        `<span class="r-event">${escapeHtml(label)}</span>` +
+        `<span class="r-serial">serial: ${escapeHtml(serial.substring(0, 16))}${serial.length > 16 ? '…' : ''}</span>`;
+
+    feed.insertBefore(entry, feed.firstChild);
+    _rotationHistory.unshift({ time: now, serial, count });
+    // Keep at most 10 entries
+    if (feed.children.length > 10) feed.removeChild(feed.lastChild);
+}
+
+function startCertExpiryCountdown() {
+    if (_certExpiryInterval) clearInterval(_certExpiryInterval);
+    _certExpiryInterval = setInterval(() => {
+        if (!_certNotAfterTs) return;
+        const now  = Date.now();
+        const rem  = Math.max(0, _certNotAfterTs - now);
+        const tot  = _certNotAfterTs - _certNotBeforeTs;
+        const pct  = tot > 0 ? (rem / tot) * 100 : 0;
+        const secs = Math.floor(rem / 1000);
+        const s    = secs % 60;
+        const m    = Math.floor(secs / 60);
+
+        const bar      = document.getElementById('cert-expiry-bar');
+        const countdown = document.getElementById('cert-expiry-countdown');
+        if (!bar || !countdown) return;
+
+        countdown.textContent = rem > 0
+            ? `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')} remaining`
+            : 'Awaiting rotation…';
+        bar.style.width    = `${pct}%`;
+        bar.className      = `progress-fill${pct < 20 ? ' danger' : pct < 40 ? ' warn' : ''}`;
+    }, 1000);
+}
+
+// ═══════════════════════════════════════════════════════════════════
 //  UI RENDERING
 // ═══════════════════════════════════════════════════════════════════
 
@@ -1859,6 +2176,11 @@ function updateLastRequest(msg) {
 
     // Re-probe every 30 seconds
     setInterval(probeConnections, 30000);
+
+    // SPIFFE cert rotation watcher — poll every 5s
+    pollSpiffeCert();
+    setInterval(pollSpiffeCert, SPIFFE_POLL_MS);
+    startCertExpiryCountdown();
 
     // Initial audit entry
     addAuditEntry('INFO', 'system', 'Demo application loaded · Spring IO 2025');

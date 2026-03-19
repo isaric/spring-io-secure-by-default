@@ -1,0 +1,15 @@
+FROM alpine:3.19 AS builder
+# Install busybox and create a minimal bin directory with necessary tools
+RUN mkdir -p /export/bin && \
+    cp /bin/busybox /export/bin/ && \
+    /bin/busybox --install -s /export/bin
+
+FROM ghcr.io/spiffe/spire-agent:1.10.0
+
+# Copy busybox and shell tools from builder
+COPY --from=builder /export/bin /bin
+
+# Add our startup wrapper
+COPY agent-entrypoint.sh /agent-entrypoint.sh
+
+ENTRYPOINT ["/agent-entrypoint.sh"]

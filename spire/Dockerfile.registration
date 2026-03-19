@@ -1,0 +1,18 @@
+FROM alpine:3.19 AS builder
+# Create a minimal bin directory with necessary tools from busybox
+RUN mkdir -p /export/bin /export/usr/bin && \
+    cp /bin/busybox /export/bin/ && \
+    /bin/busybox --install -s /export/bin && \
+    cp /usr/bin/head /export/usr/bin/ || true
+
+FROM ghcr.io/spiffe/spire-server:1.10.0
+
+# Copy shell tools from builder
+COPY --from=builder /export/bin /bin
+COPY --from=builder /export/usr/bin /usr/bin
+COPY --from=builder /lib/ld-musl-*.so.1 /lib/
+
+# Copy the registration script
+COPY register-workloads.sh /register-workloads.sh
+
+ENTRYPOINT ["/bin/sh", "/register-workloads.sh"]

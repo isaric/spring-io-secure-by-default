@@ -1,11 +1,13 @@
 #!/bin/bash
-# Bootstrap SPIRE workload registrations for demo services
-# This script registers workload identities for each service in the demo
+# Bootstrap SPIRE workload registrations for demo services.
+# Safe to re-run: updates TTL on existing entries rather than failing silently.
 
 set -e
 
 SPIRE_SERVER_SOCKET="/tmp/spire-server/private/api.sock"
 TRUST_DOMAIN="demo.spring.io"
+PARENT_ID="spiffe://${TRUST_DOMAIN}/agent/demo"
+SVID_TTL=60   # Short TTL so cert rotation is visible during the demo
 
 echo "Waiting for SPIRE server to be ready..."
 until /opt/spire/bin/spire-server healthcheck -socketPath "$SPIRE_SERVER_SOCKET" 2>/dev/null; do
@@ -13,33 +15,48 @@ until /opt/spire/bin/spire-server healthcheck -socketPath "$SPIRE_SERVER_SOCKET"
     sleep 2
 done
 
-echo "SPIRE server is ready. Registering workloads..."
+echo "SPIRE server is ready. Registering workloads (TTL: ${SVID_TTL}s)..."
 
-# Register auth-server
-/opt/spire/bin/spire-server entry create \
-    -socketPath "$SPIRE_SERVER_SOCKET" \
-    -parentID "spiffe://${TRUST_DOMAIN}/spire/agent/join_token/demo" \
-    -spiffeID "spiffe://${TRUST_DOMAIN}/auth-server" \
-    -selector "docker:label:com.spring.demo.service:auth-server" \
-    -ttl 3600 2>/dev/null || echo "auth-server entry may already exist"
+# Register or update a workload entry.
+# Uses `entry update` when the SPIFFE ID already exists so that TTL changes
+# (e.g. switching from 3600s to 60s for the rotation demo) take effect.
+register_workload() {
+    local label="$1"
+    local spiffe_id="spiffe://${TRUST_DOMAIN}/${label}"
+    local selector="docker:label:com.spring.demo.service:${label}"
 
-# Register resource-server
-/opt/spire/bin/spire-server entry create \
-    -socketPath "$SPIRE_SERVER_SOCKET" \
-    -parentID "spiffe://${TRUST_DOMAIN}/spire/agent/join_token/demo" \
-    -spiffeID "spiffe://${TRUST_DOMAIN}/resource-server" \
-    -selector "docker:label:com.spring.demo.service:resource-server" \
-    -ttl 3600 2>/dev/null || echo "resource-server entry may already exist"
+    local existing_id
+    existing_id=$(
+        /opt/spire/bin/spire-server entry show \
+            -socketPath "$SPIRE_SERVER_SOCKET" \
+            -spiffeID "$spiffe_id" 2>/dev/null \
+        | grep "^Entry ID" | awk '{print $NF}' | head -1
+    )
 
-# Register OPA
-/opt/spire/bin/spire-server entry create \
-    -socketPath "$SPIRE_SERVER_SOCKET" \
-    -parentID "spiffe://${TRUST_DOMAIN}/spire/agent/join_token/demo" \
-    -spiffeID "spiffe://${TRUST_DOMAIN}/opa" \
-    -selector "docker:label:com.spring.demo.service:opa" \
-    -ttl 3600 2>/dev/null || echo "opa entry may already exist"
+    if [ -n "$existing_id" ]; then
+        echo "  Updating ${spiffe_id} (entry: ${existing_id}, TTL: ${SVID_TTL}s)..."
+        /opt/spire/bin/spire-server entry update \
+            -socketPath "$SPIRE_SERVER_SOCKET" \
+            -id         "$existing_id" \
+            -parentID   "$PARENT_ID" \
+            -spiffeID   "$spiffe_id" \
+            -selector   "$selector" \
+            -ttl        "$SVID_TTL"
+    else
+        echo "  Creating ${spiffe_id} (TTL: ${SVID_TTL}s)..."
+        /opt/spire/bin/spire-server entry create \
+            -socketPath "$SPIRE_SERVER_SOCKET" \
+            -parentID   "$PARENT_ID" \
+            -spiffeID   "$spiffe_id" \
+            -selector   "$selector" \
+            -ttl        "$SVID_TTL"
+    fi
+}
 
-echo "Workload registration complete!"
+register_workload "auth-server"
+register_workload "resource-server"
+register_workload "opa"
+
 echo ""
-echo "Registered SPIFFE IDs:"
+echo "Workload registration complete. Registered SPIFFE IDs:"
 /opt/spire/bin/spire-server entry show -socketPath "$SPIRE_SERVER_SOCKET"

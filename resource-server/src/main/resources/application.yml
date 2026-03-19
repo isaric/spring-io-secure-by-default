@@ -1,5 +1,10 @@
 server:
   port: 8080
+  # mTLS — uncomment to terminate TLS with SPIFFE-issued certs (Step 3 demo)
+  # ssl:
+  #   enabled: true
+  #   bundle: spiffe
+  #   client-auth: want
 
 spring:
   application:
@@ -10,6 +15,18 @@ spring:
         jwt:
           jwk-set-uri: http://auth-server:9000/oauth2/jwks
           issuer-uri: http://auth-server:9000
+  ssl:
+    bundle:
+      pem:
+        spiffe:
+          # Certs are written by spire-cert-watcher every ~60s.
+          # Spring Boot reloads TLS automatically — no restart needed.
+          reload-on-update: true
+          keystore:
+            certificate: /spire-certs/svid.pem
+            private-key: /spire-certs/svid-key.pem
+          truststore:
+            certificate: /spire-certs/bundle.pem
 
 opa:
   url: http://opa:8181

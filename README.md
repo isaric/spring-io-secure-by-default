@@ -5,6 +5,7 @@
 A complete, runnable demo showing how to build **Zero Trust Spring applications** with:
 
 - 🔑 **OAuth2/OIDC** with [Spring Authorization Server](https://spring.io/projects/spring-authorization-server)
+- 🔐 **DPoP (RFC 9449)** — Demonstrating Proof of Possession for token binding
 - 🛡️ **Policy-as-Code** authorization with [Open Policy Agent (OPA)](https://www.openpolicyagent.org/)
 - 🔒 **mTLS Workload Identity** with [SPIFFE/SPIRE](https://spiffe.io/)
 - 📊 **Security Observability** with Prometheus, Loki, and Grafana
@@ -50,10 +51,10 @@ graph TB
     end
 
     %% Client flows
-    Browser -->|"1. PKCE Flow"| Frontend
-    Frontend -->|"OAuth2 Redirect"| AuthServer
-    AuthServer -->|"ID Token + Access Token"| Frontend
-    Frontend -->|"2. Bearer Token"| ResourceServer
+    Browser -->|"1. PKCE + DPoP Flow"| Frontend
+    Frontend -->|"OAuth2 Redirect + DPoP"| AuthServer
+    AuthServer -->|"DPoP-bound Token"| Frontend
+    Frontend -->|"2. DPoP Token + Proof"| ResourceServer
 
     %% Authorization flow
     ResourceServer -->|"3. Policy Query"| OPA
@@ -104,9 +105,9 @@ graph TB
 
 The system implements a **Zero Trust architecture** with multiple security layers:
 
-1. **Client Layer**: Browser-based SPA with OAuth2 PKCE flow
+1. **Client Layer**: Browser-based SPA with OAuth2 PKCE + DPoP flow
 2. **Frontend Layer**: nginx reverse proxy serving static assets and proxying API calls
-3. **Application Layer**: Spring Boot microservices with OAuth2 Resource Server
+3. **Application Layer**: Spring Boot microservices with OAuth2 Resource Server and DPoP validation
 4. **Policy Layer**: OPA for externalized authorization decisions
 5. **Identity Layer**: SPIRE for automatic workload identity with X.509 SVIDs
 6. **Observability Layer**: Prometheus, Loki, Grafana for security telemetry
@@ -168,16 +169,22 @@ The entire SPIRE bootstrap is **fully automated** — no manual token generation
 
 ## Demo Script
 
-### 1. OAuth2 PKCE Flow
+### 1. OAuth2 PKCE + DPoP Flow
 
 1. Open http://localhost:3000
-2. Click **Login** — observe redirect to `http://localhost:9000`
-3. See the login page (Spring-themed)
-4. Log in as `alice / password`
-5. Observe the consent screen listing scopes: `openid`, `profile`, `resource:read`
-6. After consent → redirected back to frontend with authorization code
-7. Frontend exchanges code for tokens (PKCE verification server-side)
-8. **Token Inspector** shows decoded JWT with custom claims: `roles`, `department`
+2. Observe the **DPoP** card showing:
+   - EC P-256 key pair automatically generated in browser
+   - JWK thumbprint of the public key
+   - Key storage: IndexedDB (non-extractable)
+3. Click **Login** — observe redirect to `http://localhost:9000`
+4. See the login page (Spring-themed)
+5. Log in as `alice / password`
+6. Observe the consent screen listing scopes: `openid`, `profile`, `resource:read`
+7. After consent → redirected back to frontend with authorization code
+8. Frontend exchanges code for DPoP-bound tokens:
+   - Includes `DPoP` header with signed proof JWT
+   - Auth server binds token to public key (`cnf.jkt` claim)
+9. **Token Inspector** shows decoded JWT with custom claims: `roles`, `department`, **`cnf` (DPoP binding)**
 
 ### 2. Role-Based Access Control
 
@@ -208,7 +215,46 @@ curl -X PUT http://localhost:8181/v1/policies/authz \
   --data-binary @opa/policies/authz.rego
 ```
 
-### 4. Certificate-Bound Tokens (JWT Thumbprints)
+### 4. DPoP Token Binding (RFC 9449)
+
+DPoP (Demonstrating Proof of Possession) prevents stolen tokens from being used by attackers:
+
+**How it works:**
+
+1. **Browser generates key pair**: EC P-256 key stored in IndexedDB (non-extractable)
+2. **Token request**: Frontend includes `DPoP` header with signed proof JWT containing:
+   ```json
+   {
+     "typ": "dpop+jwt",
+     "alg": "ES256",
+     "jwk": { "kty": "EC", "crv": "P-256", "x": "...", "y": "..." }
+   }
+   ```
+   Payload:
+   ```json
+   {
+     "htm": "POST",
+     "htu": "http://localhost:9000/oauth2/token",
+     "jti": "unique-id",
+     "iat": 1234567890
+   }
+   ```
+3. **Auth server binds token**: Issued access token includes `cnf.jkt` claim (JWK thumbprint)
+4. **API request**: Frontend sends both:
+   - `Authorization: DPoP <access-token>`
+   - `DPoP: <proof-jwt>` (includes `ath` claim with token hash)
+5. **Resource server validates**: Checks proof signature, token binding, and hash match
+
+**Try it:**
+```bash
+# View the DPoP card at http://localhost:3000
+# Click "View Details" to see the full public key
+# Click "Rotate Key Pair" to generate a new key (requires re-login)
+```
+
+**Security benefit:** Even if an access token is stolen (e.g., from logs, network intercept), it cannot be used without the private key stored securely in the browser.
+
+### 5. Certificate-Bound Tokens (JWT Thumbprints)
 
 The Authorization Server embeds client certificate thumbprints in issued JWTs via the `cnf` claim:
 
@@ -225,7 +271,7 @@ The Authorization Server embeds client certificate thumbprints in issued JWTs vi
 
 The Resource Server validates this thumbprint against the incoming client certificate when mTLS is enabled.
 
-### 5. SPIFFE Identity & Live Certificate Rotation
+### 6. SPIFFE Identity & Live Certificate Rotation
 
 The frontend displays real-time SPIFFE workload identity and certificate rotation:
 
@@ -249,7 +295,7 @@ docker logs -f spire-cert-watcher
 
 The certificates rotate automatically with a 60-second TTL (configurable in `spire/register-workloads.sh`). The frontend polls `/cert-info.json` every 5 seconds to display updates in real-time.
 
-### 6. Audit Logs in Grafana
+### 7. Audit Logs in Grafana
 
 1. Open Grafana: http://localhost:3001 (admin / demo1234)
 2. Navigate to **Dashboards → Spring IO — Secure by Default**
@@ -557,15 +603,38 @@ curl -s http://localhost:3000/cert-info.json | grep rotationCount
 
 ## Security Design Decisions
 
+### DPoP (Demonstrating Proof of Possession)
+
+This demo implements **RFC 9449 DPoP** to cryptographically bind access tokens to client keys:
+
+**Benefits:**
+- ✅ Stolen tokens are useless without the private key
+- ✅ Works in browsers using Web Crypto API + IndexedDB
+- ✅ No server-side state required
+- ✅ Automatically supported in Spring Authorization Server 1.5+ and Spring Security 6.5+
+
+**Implementation Details:**
+- **Algorithm**: ECDSA with P-256 curve (ES256)
+- **Key Storage**: IndexedDB with non-extractable private keys
+- **Proof Generation**: Signed JWT for each request with `htm`, `htu`, `jti`, `iat`, and `ath` claims
+- **Token Binding**: Authorization server adds `cnf.jkt` claim (JWK thumbprint) to access tokens
+- **Validation**: Resource server verifies proof signature and token binding on every request
+
+**Browser Requirements:**
+- Web Crypto API support (all modern browsers)
+- IndexedDB support (all modern browsers)
+- HTTPS in production (Web Crypto API requires secure context)
+
 ### JWT vs Reference Tokens
 
-This demo uses **self-contained JWTs** for performance. Tradeoffs:
+This demo uses **DPoP-bound self-contained JWTs** for performance and security:
 - ✅ No round-trip to auth server on every request
 - ✅ Stateless resource server
+- ✅ Token theft protection via DPoP binding
 - ❌ Cannot revoke before expiry (mitigated with short TTL: 15 min)
 - ❌ JWT size grows with claims
 
-In production, consider **reference tokens** for sensitive scenarios where immediate revocation is required.
+In production, consider **reference tokens** for sensitive scenarios where immediate revocation is required, or use DPoP with shorter token TTLs.
 
 ### CSRF Disabled on Resource Server
 
@@ -603,6 +672,7 @@ This demo accompanies the Spring IO 2025 talk:
 
 **Key takeaways checklist:**
 - [ ] Use Spring Authorization Server for OAuth2/OIDC
+- [ ] Implement DPoP (RFC 9449) for token binding and theft prevention
 - [ ] Design JWTs with minimal, purposeful claims
 - [ ] Use PKCE for all public clients (no client secret)
 - [ ] Integrate OPA for externalized, testable policy-as-code
@@ -612,6 +682,7 @@ This demo accompanies the Spring IO 2025 talk:
 - [ ] Test policies with automated OPA unit tests (`rego_test.rego`)
 - [ ] Gate CI/CD on policy compliance checks
 - [ ] Use certificate-bound tokens (cnf/x5t#S256) to prevent token theft
+- [ ] Store cryptographic keys securely (IndexedDB non-extractable for browsers)
 
 ---
 

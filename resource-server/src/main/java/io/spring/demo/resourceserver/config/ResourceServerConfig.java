@@ -46,6 +46,7 @@ public class ResourceServerConfig {
                     .decoder(jwtDecoder())
                     .jwtAuthenticationConverter(jwtAuthenticationConverter())
                 )
+                .dpop(dpop -> dpop.validate())
             );
         return http.build();
     }

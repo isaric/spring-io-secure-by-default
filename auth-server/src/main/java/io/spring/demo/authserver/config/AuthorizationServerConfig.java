@@ -155,6 +155,7 @@ public class AuthorizationServerConfig {
                 .tokenSettings(TokenSettings.builder()
                         .accessTokenTimeToLive(Duration.ofMinutes(15))
                         .refreshTokenTimeToLive(Duration.ofHours(1))
+                        .dpopBindingRequired(true)
                         .build())
                 .build();
 

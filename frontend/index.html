@@ -822,6 +822,7 @@
     <span class="banner-badge">LIVE DEMO</span>
     Spring IO 2025 — Zero Trust, OAuth2 &amp; Runtime Policies
     <span class="banner-badge">PKCE</span>
+    <span class="banner-badge" style="background:var(--purple);">DPoP</span>
 </div>
 
 <!-- ── Header ── -->
@@ -954,6 +955,61 @@
                     <div style="font-size:11px;color:var(--text-muted);">
                         SHA-256: <span id="cert-fingerprint" style="font-family:monospace;">—</span>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── DPoP Key Management ── -->
+        <div class="card panel-fade visible" id="dpop-card">
+            <div class="card-header">
+                <span class="card-icon">🔑</span>
+                <span class="card-title">DPoP — Demonstrating Proof of Possession (RFC 9449)</span>
+                <span class="conn-pill connected">⬤ Active</span>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info" style="margin-bottom:14px;font-size:12px;">
+                    <span>ℹ️</span>
+                    <div>
+                        <strong>Token-Binding Security</strong><br>
+                        DPoP cryptographically binds access tokens to a key pair stored in your browser.
+                        Even if a token is stolen, it cannot be used without the private key.
+                    </div>
+                </div>
+                <div style="margin-bottom:14px;">
+                    <div class="token-section-title">Key Pair Information</div>
+                    <div style="background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;padding:12px;font-size:12px;">
+                        <div style="display:grid;grid-template-columns:120px 1fr;gap:8px;align-items:start;">
+                            <div style="color:var(--text-secondary);">Algorithm:</div>
+                            <div style="color:var(--text-primary);font-family:monospace;">ES256 (P-256)</div>
+
+                            <div style="color:var(--text-secondary);">Storage:</div>
+                            <div style="color:var(--text-primary);">IndexedDB (non-extractable)</div>
+
+                            <div style="color:var(--text-secondary);">JWK Thumbprint:</div>
+                            <div style="color:var(--text-primary);font-family:monospace;word-break:break-all;font-size:11px;" id="dpop-thumbprint">
+                                <span class="loading-spinner" style="font-size:10px;"></span> Loading...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-bottom:14px;">
+                    <div class="token-section-title">How DPoP Works</div>
+                    <div style="font-size:11px;color:var(--text-secondary);line-height:1.7;">
+                        1. Browser generates EC P-256 key pair<br>
+                        2. Private key stored securely (non-extractable)<br>
+                        3. Public key sent with token requests<br>
+                        4. Auth server binds token to public key (<code>cnf.jkt</code> claim)<br>
+                        5. Each API request includes signed DPoP proof<br>
+                        6. Resource server validates proof matches token binding
+                    </div>
+                </div>
+                <div style="display:flex;gap:8px;">
+                    <button class="btn btn-secondary btn-sm" onclick="rotateDPoPKey().then(() => updateDPoPUI())">
+                        🔄 Rotate Key Pair
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="showDPoPDetails()">
+                        🔍 View Details
+                    </button>
                 </div>
             </div>
         </div>
@@ -1328,6 +1384,172 @@ function decodeJwt(token) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+//  DPOP HELPERS (RFC 9449)
+// ═══════════════════════════════════════════════════════════════════
+
+const DPOP_KEY_STORE_NAME = 'dpop-keys';
+const DPOP_DB_NAME = 'dpop-db';
+let dpopKeyPair = null;
+
+// Initialize IndexedDB for DPoP key storage
+async function initDPoPDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DPOP_DB_NAME, 1);
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result);
+        request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains(DPOP_KEY_STORE_NAME)) {
+                db.createObjectStore(DPOP_KEY_STORE_NAME);
+            }
+        };
+    });
+}
+
+// Generate or retrieve DPoP key pair
+async function getDPoPKeyPair() {
+    if (dpopKeyPair) return dpopKeyPair;
+
+    try {
+        const db = await initDPoPDB();
+        const tx = db.transaction(DPOP_KEY_STORE_NAME, 'readonly');
+        const store = tx.objectStore(DPOP_KEY_STORE_NAME);
+        const getRequest = store.get('current-keypair');
+
+        return new Promise((resolve, reject) => {
+            getRequest.onsuccess = async () => {
+                if (getRequest.result) {
+                    // Key exists, import it
+                    dpopKeyPair = {
+                        publicKey: await crypto.subtle.importKey(
+                            'jwk', getRequest.result.publicKey,
+                            { name: 'ECDSA', namedCurve: 'P-256' },
+                            true, []
+                        ),
+                        privateKey: await crypto.subtle.importKey(
+                            'jwk', getRequest.result.privateKey,
+                            { name: 'ECDSA', namedCurve: 'P-256' },
+                            false, ['sign']
+                        )
+                    };
+                    resolve(dpopKeyPair);
+                } else {
+                    // Generate new key pair
+                    dpopKeyPair = await crypto.subtle.generateKey(
+                        { name: 'ECDSA', namedCurve: 'P-256' },
+                        true,
+                        ['sign', 'verify']
+                    );
+
+                    // Export and store keys
+                    const publicJwk = await crypto.subtle.exportKey('jwk', dpopKeyPair.publicKey);
+                    const privateJwk = await crypto.subtle.exportKey('jwk', dpopKeyPair.privateKey);
+
+                    const storeTx = db.transaction(DPOP_KEY_STORE_NAME, 'readwrite');
+                    const storeObj = storeTx.objectStore(DPOP_KEY_STORE_NAME);
+                    storeObj.put({ publicKey: publicJwk, privateKey: privateJwk }, 'current-keypair');
+
+                    resolve(dpopKeyPair);
+                }
+            };
+            getRequest.onerror = () => reject(getRequest.error);
+        });
+    } catch (err) {
+        console.error('[DPoP] Key management error:', err);
+        throw err;
+    }
+}
+
+// Generate JWK thumbprint (for display)
+async function getDPoPThumbprint() {
+    const keyPair = await getDPoPKeyPair();
+    const publicJwk = await crypto.subtle.exportKey('jwk', keyPair.publicKey);
+    const jwkString = JSON.stringify({
+        crv: publicJwk.crv,
+        kty: publicJwk.kty,
+        x: publicJwk.x,
+        y: publicJwk.y
+    });
+    const encoder = new TextEncoder();
+    const data = encoder.encode(jwkString);
+    const hash = await crypto.subtle.digest('SHA-256', data);
+    return base64urlEncode(new Uint8Array(hash));
+}
+
+// Generate DPoP proof JWT
+async function generateDPoPProof(method, url, accessToken = null) {
+    try {
+        const keyPair = await getDPoPKeyPair();
+        const publicJwk = await crypto.subtle.exportKey('jwk', keyPair.publicKey);
+
+        // Header
+        const header = {
+            alg: 'ES256',
+            typ: 'dpop+jwt',
+            jwk: {
+                kty: publicJwk.kty,
+                crv: publicJwk.crv,
+                x: publicJwk.x,
+                y: publicJwk.y
+            }
+        };
+
+        // Payload
+        const payload = {
+            htm: method,
+            htu: url,
+            jti: crypto.randomUUID(),
+            iat: Math.floor(Date.now() / 1000)
+        };
+
+        // Add access token hash if provided (for resource server requests)
+        if (accessToken) {
+            const encoder = new TextEncoder();
+            const tokenData = encoder.encode(accessToken);
+            const tokenHash = await crypto.subtle.digest('SHA-256', tokenData);
+            payload.ath = base64urlEncode(new Uint8Array(tokenHash));
+        }
+
+        // Create JWT
+        const headerB64 = base64urlEncode(new TextEncoder().encode(JSON.stringify(header)));
+        const payloadB64 = base64urlEncode(new TextEncoder().encode(JSON.stringify(payload)));
+        const message = `${headerB64}.${payloadB64}`;
+
+        // Sign
+        const signature = await crypto.subtle.sign(
+            { name: 'ECDSA', hash: 'SHA-256' },
+            keyPair.privateKey,
+            new TextEncoder().encode(message)
+        );
+
+        const signatureB64 = base64urlEncode(new Uint8Array(signature));
+        return `${message}.${signatureB64}`;
+    } catch (err) {
+        console.error('[DPoP] Proof generation error:', err);
+        throw err;
+    }
+}
+
+// Rotate DPoP key pair
+async function rotateDPoPKey() {
+    try {
+        const db = await initDPoPDB();
+        const tx = db.transaction(DPOP_KEY_STORE_NAME, 'readwrite');
+        const store = tx.objectStore(DPOP_KEY_STORE_NAME);
+        store.delete('current-keypair');
+
+        dpopKeyPair = null;
+        await getDPoPKeyPair();
+
+        console.log('[DPoP] Key pair rotated successfully');
+        return true;
+    } catch (err) {
+        console.error('[DPoP] Key rotation error:', err);
+        return false;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
 //  TOKEN STORAGE (sessionStorage — demo only)
 // ═══════════════════════════════════════════════════════════════════
 
@@ -1417,6 +1639,11 @@ async function handleCallback() {
 
     try {
         updateLastRequest('Exchanging code for tokens…');
+
+        // Generate DPoP proof for token endpoint
+        const tokenUrl = `${AUTH_SERVER}/oauth2/token`;
+        const dpopProof = await generateDPoPProof('POST', tokenUrl);
+
         const body = new URLSearchParams({
             grant_type:    'authorization_code',
             client_id:     CLIENT_ID,
@@ -1425,9 +1652,12 @@ async function handleCallback() {
             code_verifier: codeVerifier || '',
         });
 
-        const resp = await fetch(`${AUTH_SERVER}/oauth2/token`, {
+        const resp = await fetch(tokenUrl, {
             method:  'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'DPoP': dpopProof
+            },
             body:    body.toString(),
         });
 
@@ -1472,20 +1702,27 @@ async function apiFetch(path, options = {}) {
     const token = getAccessToken();
     const url   = `${RESOURCE_SERVER}${path}`;
     const start = Date.now();
+    const method = options.method || 'GET';
 
     const headers = {
         'Accept': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         ...(options.headers || {}),
     };
 
+    // Add DPoP authorization if token exists
+    if (token) {
+        const dpopProof = await generateDPoPProof(method, url, token);
+        headers['Authorization'] = `DPoP ${token}`;
+        headers['DPoP'] = dpopProof;
+    }
+
     try {
-        const resp = await fetch(url, { ...options, headers });
+        const resp = await fetch(url, { ...options, headers, method });
         const ms   = Date.now() - start;
-        updateLastRequest(`${options.method || 'GET'} ${path} → ${resp.status} (${ms}ms)`);
+        updateLastRequest(`${method} ${path} → ${resp.status} (${ms}ms)`);
         return resp;
     } catch (err) {
-        updateLastRequest(`${options.method || 'GET'} ${path} → NETWORK ERROR`);
+        updateLastRequest(`${method} ${path} → NETWORK ERROR`);
         throw err;
     }
 }
@@ -1865,6 +2102,54 @@ function updateExpiry() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+//  DPOP UI HELPERS
+// ═══════════════════════════════════════════════════════════════════
+
+async function updateDPoPUI() {
+    try {
+        const thumbprint = await getDPoPThumbprint();
+        const thumbprintEl = document.getElementById('dpop-thumbprint');
+        if (thumbprintEl) {
+            thumbprintEl.textContent = thumbprint;
+        }
+    } catch (err) {
+        console.error('[DPoP] UI update error:', err);
+        const thumbprintEl = document.getElementById('dpop-thumbprint');
+        if (thumbprintEl) {
+            thumbprintEl.textContent = 'Error loading thumbprint';
+            thumbprintEl.style.color = 'var(--red)';
+        }
+    }
+}
+
+async function showDPoPDetails() {
+    try {
+        const keyPair = await getDPoPKeyPair();
+        const publicJwk = await crypto.subtle.exportKey('jwk', keyPair.publicKey);
+        const thumbprint = await getDPoPThumbprint();
+
+        const details = `DPoP Key Pair Details
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Algorithm:     ES256 (ECDSA with P-256)
+Key Type:      ${publicJwk.kty}
+Curve:         ${publicJwk.crv}
+Thumbprint:    ${thumbprint}
+
+Public Key (JWK):
+${JSON.stringify(publicJwk, null, 2)}
+
+Storage:       IndexedDB (non-extractable)
+Private Key:   ✓ Stored securely (cannot be exported)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+
+        alert(details);
+    } catch (err) {
+        console.error('[DPoP] Details error:', err);
+        alert('Error loading DPoP key details: ' + err.message);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
 //  CONNECTION PROBES
 // ═══════════════════════════════════════════════════════════════════
 
@@ -2174,6 +2459,9 @@ function updateLastRequest(msg) {
     renderUI();
     probeConnections();
 
+    // Initialize DPoP key pair and update UI
+    updateDPoPUI();
+
     // Re-probe every 30 seconds
     setInterval(probeConnections, 30000);
 
@@ -2183,7 +2471,7 @@ function updateLastRequest(msg) {
     startCertExpiryCountdown();
 
     // Initial audit entry
-    addAuditEntry('INFO', 'system', 'Demo application loaded · Spring IO 2025');
+    addAuditEntry('INFO', 'system', 'Demo application loaded · Spring IO 2025 · DPoP enabled');
 })();
 </script>
 </body>

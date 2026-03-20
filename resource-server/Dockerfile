@@ -17,9 +17,15 @@ WORKDIR /app
 
 COPY --from=build /workspace/app/target/*.jar app.jar
 
+# Startup script: waits for SPIRE cert files before launching Java so that
+# Spring Boot's SSL bundle file watcher (reload-on-update: true) can register
+# the paths at startup without hitting "is neither a file nor a directory".
+COPY start.sh start.sh
+RUN chmod +x start.sh
+
 # Use a non-root numeric UID/GID (shadow-utils not present in minimal image)
 USER 1001:1001
 
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["/app/start.sh"]

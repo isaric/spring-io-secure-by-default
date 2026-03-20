@@ -1,0 +1,19 @@
+# Multi-stage: copy the spire-agent binary into a glibc-based image.
+#
+# Alpine uses musl libc. The SPIRE agent binary is linked against glibc, so
+# copying it into Alpine causes a SIGKILL (exit 137) when the kernel can't
+# load the dynamic linker. Debian slim ships glibc and bash, matching the
+# runtime the SPIRE binary was built for.
+FROM ghcr.io/spiffe/spire-agent:1.10.0 AS spire-agent
+
+FROM debian:bookworm-slim
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends openssl \
+ && rm -rf /var/lib/apt/lists/*
+
+# Bring the SPIRE agent binary across for `spire-agent api fetch x509`
+COPY --from=spire-agent /opt/spire/bin/spire-agent /opt/spire/bin/spire-agent
+
+# watch-certs.sh uses bash syntax (set -euo pipefail, here-docs, local vars).
+# Debian ships bash at /bin/bash; mount the script at runtime via bind-mount.
+CMD ["/bin/bash", "/watch-certs.sh"]

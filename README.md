@@ -617,8 +617,9 @@ This demo implements **RFC 9449 DPoP** to cryptographically bind access tokens t
 - **Algorithm**: ECDSA with P-256 curve (ES256)
 - **Key Storage**: IndexedDB with non-extractable private keys
 - **Proof Generation**: Signed JWT for each request with `htm`, `htu`, `jti`, `iat`, and `ath` claims
-- **Token Binding**: Authorization server adds `cnf.jkt` claim (JWK thumbprint) to access tokens
+- **Token Binding**: Authorization server automatically adds `cnf.jkt` claim (JWK thumbprint) to access tokens when DPoP header is present
 - **Validation**: Resource server verifies proof signature and token binding on every request
+- **Configuration**: Zero configuration required - Spring Boot 3.5+ handles DPoP automatically
 
 **Browser Requirements:**
 - Web Crypto API support (all modern browsers)

@@ -46,7 +46,7 @@ public class ResourceServerConfig {
                     .decoder(jwtDecoder())
                     .jwtAuthenticationConverter(jwtAuthenticationConverter())
                 )
-                .dpop(dpop -> dpop.validate())
+                // DPoP validation is automatically enabled in Spring Security 6.5+
             );
         return http.build();
     }

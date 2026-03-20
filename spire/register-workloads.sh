@@ -37,7 +37,7 @@ register_workload() {
         echo "  Updating ${spiffe_id} (entry: ${existing_id}, TTL: ${SVID_TTL}s)..."
         /opt/spire/bin/spire-server entry update \
             -socketPath "$SPIRE_SERVER_SOCKET" \
-            -id         "$existing_id" \
+            -entryID    "$existing_id" \
             -parentID   "$PARENT_ID" \
             -spiffeID   "$spiffe_id" \
             -selector   "$selector" \

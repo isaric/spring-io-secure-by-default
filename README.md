@@ -500,12 +500,11 @@ cd auth-server
 **Start Resource Server:**
 ```bash
 cd resource-server
-./mvnw spring-boot:run \
-  -Dspring-boot.run.jvmArguments="\
-    -Dspring.security.oauth2.resourceserver.jwt.jwk-set-uri=http://localhost:9000/oauth2/jwks \
-    -Dspring.security.oauth2.resourceserver.jwt.issuer-uri=http://localhost:9000 \
-    -Dopa.url=http://localhost:8181"
+./mvnw spring-boot:run
 ```
+> The default configuration targets a local run (`localhost`). When running via
+> Docker Compose, the auth-server and OPA hostnames are supplied as environment
+> variable overrides, so no manual `-D` flags are needed here.
 
 **Serve Frontend:**
 ```bash

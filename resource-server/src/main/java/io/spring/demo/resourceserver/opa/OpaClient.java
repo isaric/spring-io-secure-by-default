@@ -19,7 +19,7 @@ public class OpaClient {
     private final boolean failOpen;
 
     public OpaClient(
-            @Value("${opa.url:http://opa:8181}") String opaUrl,
+            @Value("${opa.url:http://localhost:8181}") String opaUrl,
             @Value("${opa.fail-open:true}") boolean failOpen) {
         this.restTemplate = new RestTemplate();
         this.opaUrl = opaUrl;

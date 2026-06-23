@@ -13,8 +13,11 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          jwk-set-uri: http://auth-server:9000/oauth2/jwks
-          issuer-uri: http://auth-server:9000
+          # Defaults target a local (non-Docker) run on the host. Inside Docker
+          # these are overridden by env vars in docker-compose.yml to use the
+          # auth-server service hostname on the demo-network.
+          jwk-set-uri: http://localhost:9000/oauth2/jwks
+          issuer-uri: http://localhost:9000
   ssl:
     bundle:
       pem:
@@ -29,7 +32,10 @@ spring:
             certificate: /spire-certs/bundle.pem
 
 opa:
-  url: http://opa:8181
+  # Default targets a local (non-Docker) run on the host. Inside Docker this is
+  # overridden by the OPA_URL env var in docker-compose.yml to use the opa
+  # service hostname on the demo-network.
+  url: http://localhost:8181
   # Set to false in production to deny requests when OPA is unreachable
   fail-open: true
 

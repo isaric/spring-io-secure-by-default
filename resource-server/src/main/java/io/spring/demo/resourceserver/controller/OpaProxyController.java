@@ -14,7 +14,7 @@ public class OpaProxyController {
     private final RestTemplate restTemplate = new RestTemplate();
     private final String opaUrl;
 
-    public OpaProxyController(@Value("${opa.url:http://opa:8181}") String opaUrl) {
+    public OpaProxyController(@Value("${opa.url:http://localhost:8181}") String opaUrl) {
         this.opaUrl = opaUrl;
     }
 
